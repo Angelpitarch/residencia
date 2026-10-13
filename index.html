@@ -560,7 +560,7 @@ V.rooms=function(){
     var occ=all.filter(function(x){return x.i.k==='ocupada'}).length;
     var cards=shown.map(function(x){
       var r=x.r,i=x.i,tag=own?'button type="button" data-act="editRoom" data-id="'+esc(r.id)+'"':'div',end=own?'button':'div';
-      return '<'+tag+' class="room '+i.k+'"><span class="room-top"><span class="room-num">'+esc(r.num)+'</span>'+pill(i.cls,i.label)+'</span><span class="muted small">'+esc(r.tipo||'Habitación')+' · <span class="num" style="color:var(--fg)">'+money(r.precio)+'</span>/mes</span><hr><span class="room-who">'+esc(i.who)+'</span><span class="muted small">'+esc(i.nota)+'</span></'+end+'>';
+      return '<'+tag+' class="room '+i.k+'"><span class="room-top"><span class="room-num">'+esc(r.num)+'</span>'+pill(i.cls,i.label)+'</span><span class="muted small">'+esc(r.tipo||'Habitación')+' · <span class="num" style="color:var(--fg)">'+money(i.t?i.t.renta:r.precio)+'</span>/mes'+(i.t&&Number(i.t.renta)!==Number(r.precio)?' <span title="Precio normal de la habitación">(normal '+money(r.precio)+')</span>':'')+'</span><hr><span class="room-who">'+esc(i.who)+'</span><span class="muted small">'+esc(i.nota)+'</span></'+end+'>';
     }).join('');
     return '<div class="sec floor"><h3>'+(p==='—'?'Sin piso':'Piso '+esc(p))+' <small>· '+occ+' de '+all.length+' ocupadas</small></h3>'+(shown.length?'<div class="rooms">'+cards+'</div>':'<p class="note">Ninguna habitación con este estado en este piso.</p>')+'</div>';
   }).join('');
@@ -792,7 +792,7 @@ function stamp(o){o.updatedAt=new Date().toISOString();return o}
 /* ---------- acciones ---------- */
 function roomForm(r){
   r=r||{};
-  return '<div class="row2">'+fld('Número','num',r.num,'text','required placeholder="101"')+fld('Piso','piso',r.piso,'text','inputmode="numeric" placeholder="1"')+'</div><div class="row2">'+sel('Tipo','tipo',TIPOS.map(function(t){return [t,t]}),r.tipo||'Individual')+fld('Precio mensual (USD)','precio',r.precio,'text','inputmode="decimal" required placeholder="180"')+'</div>'
+  return '<div class="row2">'+fld('Número','num',r.num,'text','required placeholder="101"')+fld('Piso','piso',r.piso,'text','inputmode="numeric" placeholder="1"')+'</div><div class="row2">'+sel('Tipo','tipo',TIPOS.map(function(t){return [t,t]}),r.tipo||'Individual')+fld('Precio normal (USD)','precio',r.precio,'text','inputmode="decimal" required placeholder="100"','Lo que cobras cuando está libre. Si tiene inquilino, se muestra la renta de su ficha.')+'</div>'
    +'<label class="toggle" for="f-mant"><input id="f-mant" name="mant" type="checkbox"'+(r.mant?' checked':'')+'> Fuera de servicio por mantenimiento</label>'+fld('Nota','nota',r.nota,'text','placeholder="Ej.: vista a la calle, baño privado"');
 }
 function readRoom(d){
