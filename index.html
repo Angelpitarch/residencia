@@ -494,7 +494,8 @@ function payStatus(t,M){
   var late=Math.max(0,days(due,today()));
   var o={renta:renta,paid:paid,debe:debe,due:due,late:late};
   if(debe<=0){o.k='pagado';o.label='Pagado';o.cls='p-ok'}
-  else if(paid>0){o.k='parcial';o.label='Parcial · debe '+money(debe);o.cls='p-warn'}
+  else if(paid>0&&late>0){o.k='parcial';o.label='Vencido · debe '+money(debe);o.cls='p-bad'}
+  else if(paid>0){o.k='abonado';o.label='Abonó '+money(paid)+' · faltan '+money(debe)+' · vence '+fmtDs(due);o.cls='p-info'}
   else if(late>0){o.k='vencido';o.label='Vencido · '+late+(late===1?' día':' días');o.cls='p-bad'}
   else{o.k='pendiente';o.label='Vence '+fmtDs(due);o.cls='p-neu'}
   return o;
@@ -504,7 +505,8 @@ function roomInfo(r){
   if(t&&t.entrada<=d){
     var ps=payStatus(t,curMonth()),nota='Contrato hasta '+fmtD(t.fin);
     if(ps&&ps.k==='vencido')nota='Pago vencido hace '+ps.late+(ps.late===1?' día':' días');
-    else if(ps&&ps.k==='parcial')nota='Pago parcial: debe '+money(ps.debe);
+    else if(ps&&ps.k==='parcial')nota='Abonó '+money(ps.paid)+', debe '+money(ps.debe)+' vencido';
+    else if(ps&&ps.k==='abonado')nota='Abonó '+money(ps.paid)+', faltan '+money(ps.debe);
     else if(t.fin&&days(d,t.fin)>=0&&days(d,t.fin)<=30)nota='Contrato vence '+fmtDs(t.fin);
     if(r.mant)nota='En mantenimiento · '+nota;
     return {k:'ocupada',label:'Ocupada',cls:'p-ok',who:t.nombre,nota:nota,t:t};
