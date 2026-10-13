@@ -1027,7 +1027,16 @@ function enterApp(user){
     channel.subscribe();
   });
 }
+function linkError(){
+  var h=location.hash||'';if(h.indexOf('error')<0)return '';
+  var p=new URLSearchParams(h.slice(1)),code=p.get('error_code')||p.get('error')||'';
+  history.replaceState(null,'',location.origin+location.pathname);
+  if(code==='otp_expired')return 'Ese enlace del correo ya se usó o venció. Si ya confirmaste tu cuenta, entra con tu correo y contraseña. Si no, pide un correo nuevo y abre el más reciente.';
+  return 'El enlace del correo no es válido. Entra con tu correo y contraseña o pide uno nuevo.';
+}
 function start(){
+  var le=linkError();
+  if(le){sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;if(s)enterApp(s.user);else{showAuth('login');authMsg(le)}});return}
   sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;if(s)enterApp(s.user);else showAuth('login')});
 }
 sb.auth.onAuthStateChange(function(ev,session){
