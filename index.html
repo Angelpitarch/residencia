@@ -610,7 +610,7 @@ function tenantFicha(t){
    +(t.notas?'<p class="muted small" style="margin:6px 0 0;white-space:pre-line">'+esc(t.notas)+'</p>':'')+'</div>';
   h+='<div><p class="lbl">Últimos pagos</p>'+(hist.length?hist.map(function(p){return '<div class="kv"><span>'+fmtD(p.fecha)+' · '+esc(mShort(p.mes||''))+'</span><span class="num">'+money(p.monto)+'</span></div>'}).join(''):'<p class="muted small" style="margin:4px 0 0">Sin pagos registrados.</p>')+'</div></div>';
   if(own){
-    h+='<div class="actions">'+(ps&&ps.debe>0?btn('Registrar pago','newPayment','data-tid="'+esc(t.id)+'"','small primary'):'')+btn('Editar','editTenant','data-id="'+esc(t.id)+'"','small')+(t.salida?'':btn('Registrar salida','checkout','data-id="'+esc(t.id)+'"','small'))+btn('Eliminar','delTenant','data-id="'+esc(t.id)+'"','small ghost')+'</div>';
+    h+='<div class="actions">'+(ps&&ps.debe>0?btn('Registrar pago','newPayment','data-tid="'+esc(t.id)+'"','small primary')+btn('Registrar abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small'):'')+btn('Editar','editTenant','data-id="'+esc(t.id)+'"','small')+(t.salida?'':btn('Registrar salida','checkout','data-id="'+esc(t.id)+'"','small'))+btn('Eliminar','delTenant','data-id="'+esc(t.id)+'"','small ghost')+'</div>';
   }
   return h;
 }
@@ -625,7 +625,7 @@ V.tenants=function(){
 
 V.payments=function(){
   var M=S.month,T=monthTotals(M),own=S.owner;
-  var acts=btn('Exportar CSV','exportPayments')+(own?btn(plusIcon()+'Registrar pago','newPayment','','primary'):'');
+  var acts=btn('Exportar CSV','exportPayments')+(own?btn('Registrar abono','newPayment','data-kind="abono"')+btn(plusIcon()+'Registrar pago','newPayment','','primary'):'');
   var h=head('Cobranza de '+mLabel(M).toLowerCase(),'Pagos y morosidad',acts);
   var pct=T.esperado?Math.min(100,Math.round(T.cobrado/T.esperado*100)):0;
   h+='<section class="panel" aria-label="Resumen de cobranza"><div class="kpis" style="gap:20px">'
@@ -639,7 +639,7 @@ V.payments=function(){
   if(fu.length){
     h+='<section class="sec" aria-label="Requieren seguimiento"><h2 class="sec-h">Requieren seguimiento</h2><div class="followups">'+fu.map(function(x){
       var t=x.t,ps=x.ps,wa=waNum(t.telefono),msg=reminderText(t,ps,M);
-      return '<article class="fu '+(ps.k==='vencido'?'bad':'')+'"><div class="sec-row"><strong>'+esc(t.nombre)+' · '+esc(roomNum(t.roomId))+'</strong>'+pill(ps.cls,ps.late?ps.late+(ps.late===1?' día':' días'):'Parcial')+'</div><div class="fu-amt '+(ps.k==='vencido'?'c-bad':'c-warn')+'">'+money(ps.debe)+(ps.paid?' <span class="muted" style="font-size:15px">de '+money(ps.renta)+'</span>':'')+'</div><div class="muted small">Venció el '+fmtD(ps.due)+'.'+(ps.paid?' Abonó '+money(ps.paid)+'.':'')+(t.telefono?' Tel. '+esc(t.telefono):'')+'</div><div class="actions">'+(wa?'<a class="btn small" href="https://wa.me/'+wa+'?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Recordar por WhatsApp</a>':'')+btn('Copiar mensaje','copyMsg','data-tid="'+esc(t.id)+'"','small')+(own?btn('Registrar pago','newPayment','data-tid="'+esc(t.id)+'"','small primary'):'')+'</div></article>';
+      return '<article class="fu '+(ps.k==='vencido'?'bad':'')+'"><div class="sec-row"><strong>'+esc(t.nombre)+' · '+esc(roomNum(t.roomId))+'</strong>'+pill(ps.cls,ps.late?ps.late+(ps.late===1?' día':' días'):'Parcial')+'</div><div class="fu-amt '+(ps.k==='vencido'?'c-bad':'c-warn')+'">'+money(ps.debe)+(ps.paid?' <span class="muted" style="font-size:15px">de '+money(ps.renta)+'</span>':'')+'</div><div class="muted small">Venció el '+fmtD(ps.due)+'.'+(ps.paid?' Abonó '+money(ps.paid)+'.':'')+(t.telefono?' Tel. '+esc(t.telefono):'')+'</div><div class="actions">'+(wa?'<a class="btn small" href="https://wa.me/'+wa+'?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Recordar por WhatsApp</a>':'')+btn('Copiar mensaje','copyMsg','data-tid="'+esc(t.id)+'"','small')+(own?btn('Registrar abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small')+btn('Registrar pago','newPayment','data-tid="'+esc(t.id)+'"','small primary'):'')+'</div></article>';
     }).join('')+'</div></section>';
   }
   var tab=S.ptab;
@@ -648,13 +648,13 @@ V.payments=function(){
   var seg=[['todos','Todos'],['pagado','Pagados'],['pend','Pendientes'],['mov','Pagos registrados ('+pays.length+')']].map(function(x){return '<button type="button" data-act="ptab" data-t="'+x[0]+'" aria-pressed="'+(tab===x[0])+'">'+esc(x[1])+'</button>'}).join('');
   h+='<section class="sec" aria-label="Detalle del mes"><div class="sec-row"><h2 class="sec-h">'+(tab==='mov'?'Pagos registrados':'Estado por inquilino')+'</h2><div class="seg" role="group" aria-label="Ver">'+seg+'</div></div>';
   if(tab==='mov'){
-    h+='<div class="tablebox"><table style="min-width:600px"><thead><tr><th>Fecha</th><th>Inquilino</th><th>Método</th><th>Referencia</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
-    +(pays.length?pays.map(function(p){var t=tenantById(p.tenantId);return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(p.fecha)+'</td><td><strong>'+esc(t?t.nombre:'Inquilino eliminado')+'</strong> <span class="num muted">· '+esc(t?roomNum(t.roomId):'—')+'</span></td><td>'+esc(p.metodo||'—')+'</td><td class="muted num">'+esc(p.referencia||'—')+'</td><td class="r num">'+money(p.monto)+'</td>'+(own?'<td class="r">'+btn('Eliminar','delPayment','data-id="'+esc(p.id)+'"','small ghost')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="6" class="muted" style="padding:20px 12px">Aún no hay pagos registrados para este mes.</td></tr>')
+    h+='<div class="tablebox"><table style="min-width:640px"><thead><tr><th>Fecha</th><th>Inquilino</th><th>Tipo</th><th>Método</th><th>Referencia</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
+    +(pays.length?pays.map(function(p){var t=tenantById(p.tenantId);return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(p.fecha)+'</td><td><strong>'+esc(t?t.nombre:'Inquilino eliminado')+'</strong> <span class="num muted">· '+esc(t?roomNum(t.roomId):'—')+'</span></td><td>'+(p.tipo==='abono'?pill('p-warn','Abono'):pill('p-ok','Pago'))+'</td><td>'+esc(p.metodo||'—')+'</td><td class="muted num">'+esc(p.referencia||'—')+'</td><td class="r num">'+money(p.monto)+'</td>'+(own?'<td class="r">'+btn('Eliminar','delPayment','data-id="'+esc(p.id)+'"','small ghost')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="7" class="muted" style="padding:20px 12px">Aún no hay pagos ni abonos registrados para este mes.</td></tr>')
     +'</tbody></table></div></section>';
     return h;
   }
   h+='<div class="tablebox"><table style="min-width:600px"><thead><tr><th>Inquilino</th><th>Vence</th><th class="r">Renta</th><th class="r">Pagado</th><th>Estado</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
-    +(shown.length?shown.map(function(x){var t=x.t,ps=x.ps;return '<tr><td><strong>'+esc(t.nombre)+'</strong> <span class="num muted">· '+esc(roomNum(t.roomId))+'</span></td><td class="muted">'+fmtD(ps.due)+'</td><td class="r num">'+money(ps.renta)+'</td><td class="r num">'+money(ps.paid)+'</td><td>'+pill(ps.cls,ps.label)+'</td>'+(own?'<td class="r">'+(ps.debe>0?btn('Registrar','newPayment','data-tid="'+esc(t.id)+'"','small'):'')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="6" class="muted" style="padding:24px 14px">'+(rows.length?'Nadie en este filtro.':'No hay inquilinos con contrato activo en '+esc(mLabel(M).toLowerCase())+'.')+'</td></tr>')
+    +(shown.length?shown.map(function(x){var t=x.t,ps=x.ps;return '<tr><td><strong>'+esc(t.nombre)+'</strong> <span class="num muted">· '+esc(roomNum(t.roomId))+'</span></td><td class="muted">'+fmtD(ps.due)+'</td><td class="r num">'+money(ps.renta)+'</td><td class="r num">'+money(ps.paid)+'</td><td>'+pill(ps.cls,ps.label)+'</td>'+(own?'<td class="r" style="white-space:nowrap">'+(ps.debe>0?btn('Abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small ghost')+' '+btn('Pago','newPayment','data-tid="'+esc(t.id)+'"','small'):'')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="6" class="muted" style="padding:24px 14px">'+(rows.length?'Nadie en este filtro.':'No hay inquilinos con contrato activo en '+esc(mLabel(M).toLowerCase())+'.')+'</td></tr>')
     +'</tbody></table></div></section>';
   return h;
 };
@@ -755,7 +755,7 @@ function guestClient(tok){return window.supabase.createClient(SB_URL,SB_KEY,{glo
 var FIELDS={
   rooms:{num:'num',piso:'piso',tipo:'tipo',precio:'precio',mant:'mant',nota:'nota'},
   tenants:{nombre:'nombre',roomId:'room_id',renta:'renta',telefono:'telefono',cedula:'cedula',emergencia:'emergencia',entrada:'entrada',fin:'fin',salida:'salida',diaPago:'dia_pago',deposito:'deposito',notas:'notas'},
-  payments:{tenantId:'tenant_id',mes:'mes',monto:'monto',fecha:'fecha',metodo:'metodo',referencia:'referencia'},
+  payments:{tenantId:'tenant_id',mes:'mes',monto:'monto',fecha:'fecha',metodo:'metodo',referencia:'referencia',tipo:'tipo'},
   expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle'},
   incidents:{lugar:'lugar',titulo:'titulo',detalle:'detalle',prioridad:'prioridad',fecha:'fecha',estado:'estado',resueltaEn:'resuelta_en'}
 };
@@ -896,23 +896,42 @@ A.newTenant=function(){
 A.editTenant=function(b){var t=tenantById(b.dataset.id);if(!t)return;openModal('Editar a '+t.nombre,tenantForm(t),function(d){return col('tenants').doc(t.id).update(readTenant(d)).then(function(){return 'Cambios guardados'})})};
 A.checkout=function(b){var t=tenantById(b.dataset.id);if(!t)return;openModal('Registrar salida','<p style="margin:0">'+esc(t.nombre)+' dejará la habitación '+esc(roomNum(t.roomId))+'. Su historial y pagos se conservan.</p>'+fld('Fecha de salida','salida',today(),'date','required'),function(d){if(!d.salida)fail('Indica la fecha de salida.');if(d.salida<t.entrada)fail('La salida no puede ser antes de la entrada.');return col('tenants').doc(t.id).update(stamp({salida:d.salida})).then(function(){return 'Salida registrada'})},{label:'Registrar salida'})};
 A.delTenant=function(b){var t=tenantById(b.dataset.id);if(!t)return;openModal('Eliminar a '+t.nombre,'<p style="margin:0">Se borra la ficha del inquilino. Sus pagos quedan registrados como «Inquilino eliminado». Si solo se mudó, usa «Registrar salida».</p>',function(){return col('tenants').doc(t.id).delete().then(function(){S.sel=null;return 'Inquilino eliminado'})},{label:'Eliminar',danger:true})};
+var payKind='pago';
+function updPayInfo(){
+  var box=document.getElementById('payInfo');if(!box)return;
+  var t=tenantById((document.getElementById('f-tenantId')||{}).value),M=(document.getElementById('f-mes')||{}).value||S.month;
+  var ps=t&&/^\d{4}-\d{2}$/.test(M)?payStatus(t,M):null;
+  if(!ps){box.textContent=t?'Este inquilino no tiene contrato activo en '+mLabel(/^\d{4}-\d{2}$/.test(M)?M:S.month).toLowerCase()+'.':'';return}
+  var monto=toNum((document.getElementById('f-monto')||{}).value);
+  var txt='Renta de '+mLabel(M).toLowerCase()+': '+money(ps.renta)+'. '+(ps.paid?'Ya abonó '+money(ps.paid)+'. ':'')+(ps.debe>0?'Debe '+money(ps.debe)+'.':'El mes ya está pagado.');
+  if(monto>0&&ps.debe>0){var rest=ps.debe-monto;txt+=rest>0?' Con este monto quedará debiendo '+money(rest)+'.':' Con este monto el mes queda pagado'+(rest<0?' y sobran '+money(-rest)+'.':'.')}
+  box.textContent=txt;
+}
 A.newPayment=function(b){
   var M=S.month,list=S.tenants.filter(function(t){return activeIn(t,M)||isCurrent(t)}).sort(function(a,c){return byNum(roomById(a.roomId)||{},roomById(c.roomId)||{})});
-  if(!list.length){openModal('Registrar pago','<p style="margin:0">No hay inquilinos activos. Registra un inquilino primero.</p>',null);return}
+  payKind=b&&b.dataset.kind==='abono'?'abono':'pago';
+  var title=payKind==='abono'?'Registrar abono':'Registrar pago';
+  if(!list.length){openModal(title,'<p style="margin:0">No hay inquilinos activos. Registra un inquilino primero.</p>',null);return}
   var tid=(b&&b.dataset.tid)||((list.find(function(t){var p=payStatus(t,M);return p&&p.debe>0})||list[0]).id);
   var t0=tenantById(tid),ps=t0?payStatus(t0,M):null;
-  var inner=sel('Inquilino','tenantId',list.map(function(t){return [t.id,t.nombre+' · '+roomNum(t.roomId)]}),tid)
-   +'<div class="row2">'+fld('Mes que paga','mes',M,'month','required')+fld('Monto (USD)','monto',ps?ps.debe||ps.renta:(t0?t0.renta:''),'text','inputmode="decimal" required')+'</div>'
-   +'<div class="row2">'+fld('Fecha del pago','fecha',today(),'date','required')+fld('Referencia','referencia','','text','placeholder="N.º de confirmación"')+'</div>'
+  var defMonto=payKind==='abono'?'':(ps?ps.debe||ps.renta:(t0?t0.renta:''));
+  var inner=(payKind==='abono'?'<p class="muted small" style="margin:0">Un abono es un pago parcial. Puedes registrar varios en el mismo mes; la app los suma y descuenta de la renta.</p>':'')
+   +sel('Inquilino','tenantId',list.map(function(t){return [t.id,t.nombre+' · '+roomNum(t.roomId)]}),tid)
+   +'<div class="row2">'+fld('Mes al que se aplica','mes',M,'month','required')+fld(payKind==='abono'?'Monto del abono (USD)':'Monto (USD)','monto',defMonto,'text','inputmode="decimal" required'+(payKind==='abono'?' placeholder="Ej.: 30"':''))+'</div>'
+   +'<p class="note" id="payInfo" aria-live="polite"></p>'
+   +'<div class="row2">'+fld('Fecha','fecha',today(),'date','required')+fld('Referencia','referencia','','text','placeholder="N.º de confirmación"')+'</div>'
    +radios('Método','metodo',METODOS,'Zelle');
-  openModal('Registrar pago',inner,function(d){
+  openModal(title,inner,function(d){
     var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');
-    if(!/^\d{4}-\d{2}$/.test(d.mes||''))fail('Elige el mes que se está pagando.');
-    if(!d.fecha)fail('Indica la fecha del pago.');
-    var o=stamp({tenantId:d.tenantId,mes:d.mes,monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',referencia:d.referencia||''});o.createdAt=o.updatedAt;
-    var t=tenantById(d.tenantId);
-    return col('payments').add(o).then(function(){return 'Pago de '+money(monto)+(t?' de '+t.nombre:'')+' registrado'});
-  },{label:'Guardar pago'});
+    if(!/^\d{4}-\d{2}$/.test(d.mes||''))fail('Elige el mes al que se aplica.');
+    if(!d.fecha)fail('Indica la fecha.');
+    var t=tenantById(d.tenantId),ps2=t?payStatus(t,d.mes):null,debe=ps2?ps2.debe:Infinity;
+    var tipo=payKind==='abono'||monto<debe?'abono':'pago';
+    var o=stamp({tenantId:d.tenantId,mes:d.mes,monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',referencia:d.referencia||'',tipo:tipo});
+    var rest=isFinite(debe)?Math.max(0,debe-monto):null;
+    return col('payments').add(o).then(function(){return (tipo==='abono'?'Abono':'Pago')+' de '+money(monto)+(t?' de '+t.nombre:'')+' registrado'+(rest!=null?(rest>0?' · queda debiendo '+money(rest):' · mes pagado'):'')});
+  },{label:payKind==='abono'?'Guardar abono':'Guardar pago'});
+  updPayInfo();
 };
 A.delPayment=function(b){var p=S.payments.find(function(x){return x.id===b.dataset.id});if(!p)return;var t=tenantById(p.tenantId);openModal('Eliminar pago','<p style="margin:0">Se elimina el pago de '+money(p.monto)+(t?' de '+esc(t.nombre):'')+' del '+fmtD(p.fecha)+'. La deuda del mes se recalcula.</p>',function(){return col('payments').doc(p.id).delete().then(function(){return 'Pago eliminado'})},{label:'Eliminar',danger:true})};
 A.newExpense=function(){
@@ -951,8 +970,8 @@ function save(name,data){
 A.exportPayments=function(){
   var M=S.month,rows=[['Habitación','Inquilino','Renta','Pagado','Debe','Estado','Vence']];
   S.tenants.forEach(function(t){var ps=payStatus(t,M);if(ps)rows.push([roomNum(t.roomId),t.nombre,ps.renta,ps.paid,ps.debe,ps.label,ps.due])});
-  rows.push([]);rows.push(['Pagos registrados']);rows.push(['Fecha','Inquilino','Habitación','Método','Referencia','Monto']);
-  S.payments.filter(function(p){return p.mes===M}).forEach(function(p){var t=tenantById(p.tenantId);rows.push([p.fecha,t?t.nombre:'Inquilino eliminado',t?roomNum(t.roomId):'',p.metodo,p.referencia,p.monto])});
+  rows.push([]);rows.push(['Pagos y abonos registrados']);rows.push(['Fecha','Inquilino','Habitación','Tipo','Método','Referencia','Monto']);
+  S.payments.filter(function(p){return p.mes===M}).forEach(function(p){var t=tenantById(p.tenantId);rows.push([p.fecha,t?t.nombre:'Inquilino eliminado',t?roomNum(t.roomId):'',p.tipo==='abono'?'Abono':'Pago',p.metodo,p.referencia,p.monto])});
   save('pagos-'+M+'.csv',csv(rows));
 };
 A.exportExpenses=function(){
@@ -964,12 +983,14 @@ A.exportExpenses=function(){
 
 document.addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(!b||b.disabled)return;var f=A[b.dataset.act];if(f){e.preventDefault();f(b)}});
 document.addEventListener('input',function(e){
+  if(e.target.id==='f-monto'&&document.getElementById('payInfo'))updPayInfo();
   if(e.target.id==='q'){S.q=e.target.value;var tb=document.getElementById('trows');if(tb)tb.innerHTML=tenantRows()}
 });
 document.addEventListener('change',function(e){
   if(e.target.id==='past'){S.past=e.target.checked;render()}
   if(e.target.id==='f-roomId'){var r=roomById(e.target.value),inp=document.getElementById('f-renta');if(r&&inp)inp.value=r.precio}
-  if(e.target.id==='f-tenantId'){var t=tenantById(e.target.value),mi=document.getElementById('f-mes'),mo=document.getElementById('f-monto');if(t&&mo){var ps=payStatus(t,mi&&mi.value||S.month);mo.value=ps?(ps.debe||ps.renta):t.renta}}
+  if(e.target.id==='f-tenantId'){var t=tenantById(e.target.value),mi=document.getElementById('f-mes'),mo=document.getElementById('f-monto');if(t&&mo&&payKind!=='abono'){var ps=payStatus(t,mi&&mi.value||S.month);mo.value=ps?(ps.debe||ps.renta):t.renta}updPayInfo()}
+  if(e.target.id==='f-mes')updPayInfo();
 });
 var toastT=0;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
