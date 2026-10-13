@@ -731,6 +731,7 @@ document.getElementById('modal').addEventListener('submit',function(ev){
 document.getElementById('modal').addEventListener('keydown',function(e){if(e.key==='Escape')closeModal()});
 function dbMsg(err){
   if(!err)return 'No se pudo guardar. Intenta de nuevo.';
+  if(isNetErr(err))return 'No se pudo enviar el cambio: tu navegador no llegó al servidor. Revisa tu conexión. Si sigue pasando, prueba en una ventana de incógnito o desactiva extensiones o la protección de datos del antivirus para esta página.';
   if(err.code==='42501')return 'Solo la administración puede modificar los datos.';
   if(err.code==='23505')return 'Ya existe un registro igual (por ejemplo, el mismo número de habitación).';
   if(err.code==='23514'||err.code==='22P02'||err.code==='22007')return 'Algún dato no tiene el formato correcto. Revisa montos y fechas.';
@@ -762,12 +763,14 @@ function toDb(c,o){var m=FIELDS[c],r={};Object.keys(m).forEach(function(k){if(k 
 function fromDb(c,row){var m=FIELDS[c],o={id:row.id};Object.keys(m).forEach(function(k){var v=row[m[k]];o[k]=v==null?'':v});['precio','renta','deposito','monto'].forEach(function(k){if(k in o&&o[k]!=='')o[k]=Number(o[k])});o.createdAt=row.created_at;return o}
 function chk(res){if(res.error)throw res.error;return res.data}
 function chkRows(res){var d=chk(res);if(!d||!d.length){var e=new Error('denied');e.code='42501';throw e}return d}
+function isNetErr(e){var m=String(e&&(e.message||e.details)||'');return e instanceof TypeError||/failed to fetch|networkerror|load failed|network request failed/i.test(m)}
+function retry(run){return run().then(function(res){if(res&&res.error&&isNetErr(res.error))return new Promise(function(ok){setTimeout(ok,900)}).then(run);return res},function(e){if(isNetErr(e))return new Promise(function(ok){setTimeout(ok,900)}).then(run);throw e})}
 function col(c){
   return {
-    add:function(o){return sb.from(c).insert(toDb(c,o)).select('id').single().then(chk).then(function(d){reload(c);return {id:d.id}})},
+    add:function(o){var row=toDb(c,o);return retry(function(){return sb.from(c).insert(row).select('id').single()}).then(chk).then(function(d){reload(c);return {id:d.id}})},
     doc:function(id){return {
-      update:function(o){return sb.from(c).update(toDb(c,o)).eq('id',id).select('id').then(chkRows).then(function(){reload(c)})},
-      delete:function(){return sb.from(c).delete().eq('id',id).select('id').then(chkRows).then(function(){reload(c)})}
+      update:function(o){var row=toDb(c,o);return retry(function(){return sb.from(c).update(row).eq('id',id).select('id')}).then(chkRows).then(function(){reload(c)})},
+      delete:function(){return retry(function(){return sb.from(c).delete().eq('id',id).select('id')}).then(chkRows).then(function(){reload(c)})}
     }}
   };
 }
