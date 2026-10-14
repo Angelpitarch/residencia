@@ -417,6 +417,8 @@ tr.expand td{padding:0 12px 16px}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2.5" y="5" width="19" height="14" rx="2"/><path d="M2.5 10h19"/><path d="M6.5 15h4"/></svg>Pagos</button>
       <button type="button" class="nav-link" data-act="view" data-v="expenses">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3.5 17.5a1.4 1.4 0 0 0 2 2l5.8-5.8a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>Gastos y mantenimiento</button>
+      <button type="button" class="nav-link" data-act="view" data-v="partner">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Reparto</button>
     </div>
     <div class="nav-foot"><span>Hoy</span><strong id="todayLbl"></strong></div>
     <div class="nav-user">
@@ -446,7 +448,7 @@ tr.expand td{padding:0 12px 16px}
 'use strict';
 var MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 var MES3=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-var COLS=['rooms','tenants','payments','expenses','incidents'];
+var COLS=['rooms','tenants','payments','expenses','incidents','envios'];
 var METODOS=['Zelle','Pago móvil','Transferencia','Efectivo','Otro'];
 var TIPOS=['Individual','Doble','Triple','Suite'];
 var CATS=['Electricidad','Agua','Internet','Gas','Limpieza','Mantenimiento','Reparaciones','Impuestos','Otros'];
@@ -473,10 +475,10 @@ function byNum(a,b){return (Number(a.piso)||0)-(Number(b.piso)||0)||String(a.num
 function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
 function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 
-var S={rooms:[],tenants:[],payments:[],expenses:[],incidents:[],config:{},loaded:{},
+var S={rooms:[],tenants:[],payments:[],expenses:[],incidents:[],envios:[],config:{},loaded:{},
   view:lsGet('res.view')||'rooms',month:curMonth(),filter:'todas',sel:null,q:'',past:false,ptab:'todos',
   owner:false,db:null,dl:null,failed:false};
-if(['rooms','tenants','payments','expenses'].indexOf(S.view)<0)S.view='rooms';
+if(['rooms','tenants','payments','expenses','partner'].indexOf(S.view)<0)S.view='rooms';
 
 /* ---------- dominio ---------- */
 function roomById(id){return S.rooms.find(function(r){return r.id===id})}
@@ -672,7 +674,7 @@ V.expenses=function(){
   var ck=Object.keys(cats).sort(function(a,b){return cats[b]-cats[a]}),max=ck.length?cats[ck[0]]:1;
   var left='<section class="side panel" aria-label="Gastos por categoría" style="flex-basis:360px"><h2>Gastos por categoría</h2>'
     +(ck.length?'<ul class="list" style="display:flex;flex-direction:column;gap:12px">'+ck.map(function(k){return '<li style="flex-direction:column;gap:6px;padding:0;border:none"><div class="sec-row"><span style="font-weight:500">'+esc(k)+'</span><span class="num">'+money(cats[k])+'</span></div><div class="bar"><i style="width:'+Math.max(3,Math.round(cats[k]/max*100))+'%"></i></div></li>'}).join('')+'</ul><div class="divider"></div>':'<p class="muted" style="margin:0">Sin gastos registrados en '+esc(mLabel(M).toLowerCase())+'.</p>')
-    +(ex.length?'<p class="lbl">Detalle</p>'+ex.map(function(e){return '<div class="kv" style="align-items:center"><span><span style="color:var(--fg);font-weight:500">'+esc(e.categoria||'Otros')+'</span>'+(e.detalle?' · '+esc(e.detalle):'')+'<br><span class="small">'+fmtD(e.fecha)+'</span></span><span style="display:flex;align-items:center;gap:6px"><span class="num" style="color:var(--fg)">'+money(e.monto)+'</span>'+(own?'<button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>':'')+'</span></div>'}).join(''):'')
+    +(ex.length?'<p class="lbl">Detalle</p>'+ex.map(function(e){return '<div class="kv" style="align-items:center"><span><span style="color:var(--fg);font-weight:500">'+esc(e.categoria||'Otros')+'</span>'+(e.detalle?' · '+esc(e.detalle):'')+'<br><span class="small">'+fmtD(e.fecha)+(e.pagadoPor==='socio'?' · pagó '+esc(partnerName()):'')+'</span></span><span style="display:flex;align-items:center;gap:6px"><span class="num" style="color:var(--fg)">'+money(e.monto)+'</span>'+(own?'<button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>':'')+'</span></div>'}).join(''):'')
     +'</section>';
   var cut=addDays(today(),-60),open=openIncidents().length;
   var cols=[['abierta','Abiertas'],['curso','En curso'],['resuelta','Resueltas (60 días)']].map(function(c){
@@ -687,6 +689,84 @@ V.expenses=function(){
   var right='<section class="wide sec" aria-label="Incidencias"><div class="sec-row"><h2 class="sec-h">Incidencias</h2><span class="muted small">'+open+' sin resolver</span></div><div class="kanban">'+cols+'</div></section>';
   return h+'<div class="split">'+left+right+'</div>';
 };
+
+/* ---------- reparto con la otra persona responsable ---------- */
+function partnerName(){return (S.config&&S.config.socio_nombre)||'Socio'}
+function sMoney(n){n=Number(n)||0;return (n<-0.004?'−':'')+money(Math.abs(n))}
+function partnerMonth(M){
+  var T=monthTotals(M),pct=Number(S.config.socio_pct)||0,porCobrado=S.config.socio_base==='cobrado';
+  var base=porCobrado?T.cobrado:T.cobrado-T.gastos,corr=pct/100*base;
+  var gs=S.expenses.reduce(function(s,e){return s+(e.pagadoPor==='socio'&&(e.fecha||'').slice(0,7)===M?(Number(e.monto)||0):0)},0);
+  var env=S.envios.reduce(function(s,e){return s+((e.fecha||'').slice(0,7)===M?(Number(e.monto)||0):0)},0);
+  return {pct:pct,base:base,porCobrado:porCobrado,corr:corr,gs:gs,env:env,saldo:corr+gs-env};
+}
+function partnerTotals(){
+  var ms={};
+  S.payments.forEach(function(p){if(p.mes)ms[p.mes]=1});
+  S.expenses.forEach(function(e){if(e.fecha)ms[e.fecha.slice(0,7)]=1});
+  S.envios.forEach(function(e){if(e.fecha)ms[e.fecha.slice(0,7)]=1});
+  var t={corr:0,gs:0,env:0,saldo:0};
+  Object.keys(ms).forEach(function(M){var r=partnerMonth(M);t.corr+=r.corr;t.gs+=r.gs;t.env+=r.env;t.saldo+=r.saldo});
+  return t;
+}
+function saldoTxt(n,pn){
+  if(n>0.004)return {v:sMoney(n),s:'Le debes a '+pn,c:'c-warn'};
+  if(n<-0.004)return {v:sMoney(-n),s:pn+' recibió de más',c:'c-bad'};
+  return {v:'$0',s:'Están al día',c:'c-ok'};
+}
+V.partner=function(){
+  var M=S.month,own=S.owner,pn=partnerName(),r=partnerMonth(M),tot=partnerTotals();
+  var acts=own?btn('Configurar','partnerSettings')+btn('Gasto que pagó','newExpense','data-by="socio"')+btn(plusIcon()+'Registrar envío','newEnvio','','primary'):'';
+  var h=head('Cuenta con '+pn,'Reparto con '+pn,acts);
+  if(!r.pct)h+='<p class="note">'+(own?'Todavía no has definido el porcentaje de '+esc(pn)+'. Presiona «Configurar» para poner su nombre, su porcentaje y si se calcula sobre la ganancia o sobre lo cobrado.':'La administración todavía no ha definido el porcentaje del reparto.')+'</p>';
+  var baseLbl=r.porCobrado?'lo cobrado':'la ganancia';
+  var sm=saldoTxt(r.saldo,pn);
+  h+='<section class="kpis" aria-label="Reparto del mes">'
+    +kpi('Le corresponde · '+mShort(M),sMoney(r.corr),(r.pct?(+r.pct.toFixed(2))+'% de '+baseLbl+' ('+sMoney(r.base)+')':'Sin porcentaje definido'),r.corr<0?'c-bad':'')
+    +kpi('Gastos que pagó',money(r.gs),'Se le suman a favor')
+    +kpi('Enviado',money(r.env),'Dinero que le mandaste')
+    +kpi('Saldo del mes',sm.v,sm.s,sm.c)
+    +'</section>';
+  var envs=S.envios.filter(function(e){return (e.fecha||'').slice(0,7)===M}).sort(function(a,b){return (b.fecha||'')<(a.fecha||'')?-1:1});
+  var gsus=S.expenses.filter(function(e){return e.pagadoPor==='socio'&&(e.fecha||'').slice(0,7)===M}).sort(function(a,b){return (b.fecha||'')<(a.fecha||'')?-1:1});
+  var trash=function(act,id,lbl){return own?'<td class="r"><button type="button" class="icon-btn" data-act="'+act+'" data-id="'+esc(id)+'" aria-label="'+lbl+'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button></td>':''};
+  var wide='<div class="wide sec" style="gap:22px">'
+    +'<section class="sec" aria-label="Envíos del mes"><h2 class="sec-h">Dinero enviado en '+esc(mLabel(M).toLowerCase())+'</h2><div class="tablebox"><table style="min-width:480px"><thead><tr><th>Fecha</th><th>Método</th><th>Nota</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
+    +(envs.length?envs.map(function(e){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.metodo||'—')+'</td><td class="muted">'+esc(e.nota||'—')+'</td><td class="r num">'+money(e.monto)+'</td>'+trash('delEnvio',e.id,'Eliminar envío')+'</tr>'}).join(''):'<tr><td colspan="5" class="muted" style="padding:18px 12px">No hay envíos registrados este mes.</td></tr>')
+    +'</tbody></table></div></section>'
+    +'<section class="sec" aria-label="Gastos que pagó"><h2 class="sec-h">Gastos que pagó '+esc(pn)+'</h2><div class="tablebox"><table style="min-width:480px"><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
+    +(gsus.length?gsus.map(function(e){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.categoria||'Otros')+'</td><td class="muted">'+esc(e.detalle||'—')+'</td><td class="r num">'+money(e.monto)+'</td>'+trash('delExpense',e.id,'Eliminar gasto')+'</tr>'}).join(''):'<tr><td colspan="5" class="muted" style="padding:18px 12px">No hay gastos pagados por '+esc(pn)+' este mes.</td></tr>')
+    +'</tbody></table></div></section></div>';
+  var st=saldoTxt(tot.saldo,pn);
+  var side='<aside class="side panel" aria-label="Saldo acumulado"><h2>Acumulado desde el inicio</h2>'
+    +'<div><div class="kv"><span>Le ha correspondido</span><span class="num">'+sMoney(tot.corr)+'</span></div>'
+    +'<div class="kv"><span>Gastos que pagó</span><span class="num">+ '+money(tot.gs)+'</span></div>'
+    +'<div class="kv"><span>Enviado</span><span class="num">− '+money(tot.env)+'</span></div></div>'
+    +'<div class="divider"></div>'
+    +'<div class="kv" style="align-items:baseline"><span style="font-weight:600;color:var(--fg)">'+esc(st.s)+'</span><span class="kpi-v '+st.c+'" style="font-size:22px">'+st.v+'</span></div>'
+    +'<p class="muted small" style="margin:0">Se calcula con el porcentaje actual sobre todos los meses con movimientos.</p></aside>';
+  return h+'<div class="split">'+wide+side+'</div>';
+};
+A.partnerSettings=function(){
+  var c=S.config||{};
+  openModal('Configurar reparto',fld('Nombre de la otra persona responsable','socio_nombre',c.socio_nombre&&c.socio_nombre!=='Socio'?c.socio_nombre:'','text','required placeholder="Ej.: María"')
+    +'<div class="row2">'+fld('Porcentaje (%)','socio_pct',c.socio_pct!=null?c.socio_pct:'','text','inputmode="decimal" required placeholder="30"')
+    +sel('Se calcula sobre','socio_base',[['neto','La ganancia (cobrado − gastos)'],['cobrado','Todo lo cobrado']],c.socio_base||'neto')+'</div>',function(d){
+    if(!d.socio_nombre)fail('Escribe el nombre.');
+    var pct=toNum(d.socio_pct);if(!(pct>=0&&pct<=100))fail('El porcentaje debe estar entre 0 y 100.');
+    return api.from('config').update({socio_nombre:d.socio_nombre,socio_pct:pct,socio_base:d.socio_base==='cobrado'?'cobrado':'neto',updated_at:new Date().toISOString()}).eq('id',1).select('id').then(chkRows).then(function(){reload('config');return 'Reparto actualizado'});
+  });
+};
+A.newEnvio=function(){
+  var pn=partnerName(),def=S.month===curMonth()?today():lastDay(S.month),r=partnerMonth(S.month);
+  openModal('Dinero enviado a '+pn,(r.saldo>0.004?'<p class="note" style="margin:0">Saldo pendiente de '+esc(mLabel(S.month).toLowerCase())+': '+money(r.saldo)+'.</p>':'')
+    +'<div class="row2">'+fld('Monto (USD)','monto',r.saldo>0.004?(Math.round(r.saldo*100)/100):'','text','inputmode="decimal" required')+fld('Fecha','fecha',def,'date','required')+'</div>'
+    +radios('Método','metodo',METODOS,'Zelle')+fld('Nota','nota','','text','placeholder="Ej.: parte de octubre"'),function(d){
+    var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');if(!d.fecha)fail('Indica la fecha.');
+    return col('envios').add({monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',nota:d.nota||''}).then(function(){return 'Envío de '+money(monto)+' registrado'});
+  },{label:'Guardar envío'});
+};
+A.delEnvio=function(b){var e=S.envios.find(function(x){return x.id===b.dataset.id});if(!e)return;openModal('Eliminar envío','<p style="margin:0">Se elimina el envío de '+money(e.monto)+' del '+fmtD(e.fecha)+'. El saldo se recalcula.</p>',function(){return col('envios').doc(e.id).delete().then(function(){return 'Envío eliminado'})},{label:'Eliminar',danger:true})};
 
 /* ---------- render ---------- */
 var raf=0;
@@ -758,7 +838,8 @@ var FIELDS={
   rooms:{num:'num',piso:'piso',tipo:'tipo',precio:'precio',mant:'mant',nota:'nota'},
   tenants:{nombre:'nombre',roomId:'room_id',renta:'renta',telefono:'telefono',cedula:'cedula',emergencia:'emergencia',entrada:'entrada',fin:'fin',salida:'salida',diaPago:'dia_pago',deposito:'deposito',notas:'notas'},
   payments:{tenantId:'tenant_id',mes:'mes',monto:'monto',fecha:'fecha',metodo:'metodo',referencia:'referencia',tipo:'tipo'},
-  expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle'},
+  expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle',pagadoPor:'pagado_por'},
+  envios:{monto:'monto',fecha:'fecha',metodo:'metodo',nota:'nota'},
   incidents:{lugar:'lugar',titulo:'titulo',detalle:'detalle',prioridad:'prioridad',fecha:'fecha',estado:'estado',resueltaEn:'resuelta_en'}
 };
 var NULLABLE={fin:1,salida:1,resuelta_en:1,room_id:1,tenant_id:1,piso:1};
@@ -787,7 +868,7 @@ var reloadT={};
 function reload(c){
   clearTimeout(reloadT[c]);
   reloadT[c]=setTimeout(function(){
-    if(c==='config'){api.from('config').select('nombre').eq('id',1).maybeSingle().then(chk).then(function(d){S.config=d||{};schedule()}).catch(function(){});return}
+    if(c==='config'){api.from('config').select('nombre,socio_nombre,socio_pct,socio_base').eq('id',1).maybeSingle().then(chk).then(function(d){S.config=d||{};schedule()}).catch(function(){});return}
     fetchAll(c).then(function(rows){S[c]=rows.map(function(r){return fromDb(c,r)});S.loaded[c]=true;schedule()}).catch(function(e){S.loaded[c]=true;console.error(e);toast('No se pudieron cargar algunos datos. Revisa tu conexión.');schedule()});
   },60);
 }
@@ -936,11 +1017,11 @@ A.newPayment=function(b){
   updPayInfo();
 };
 A.delPayment=function(b){var p=S.payments.find(function(x){return x.id===b.dataset.id});if(!p)return;var t=tenantById(p.tenantId);openModal('Eliminar pago','<p style="margin:0">Se elimina el pago de '+money(p.monto)+(t?' de '+esc(t.nombre):'')+' del '+fmtD(p.fecha)+'. La deuda del mes se recalcula.</p>',function(){return col('payments').doc(p.id).delete().then(function(){return 'Pago eliminado'})},{label:'Eliminar',danger:true})};
-A.newExpense=function(){
-  var def=S.month===curMonth()?today():lastDay(S.month);
-  openModal('Nuevo gasto','<div class="row2"><label class="f" for="f-categoria">Categoría<input id="f-categoria" name="categoria" list="cats" required placeholder="Electricidad"></label>'+fld('Monto (USD)','monto','','text','inputmode="decimal" required')+'</div>'+datalist('cats',CATS)+'<div class="row2">'+fld('Fecha','fecha',def,'date','required')+fld('Detalle','detalle','','text','placeholder="Factura de octubre"')+'</div>',function(d){
+A.newExpense=function(b){
+  var def=S.month===curMonth()?today():lastDay(S.month),porSocio=b&&b.dataset&&b.dataset.by==='socio',pn=partnerName();
+  openModal(porSocio?'Gasto pagado por '+pn:'Nuevo gasto',(porSocio?'<p class="muted small" style="margin:0">Se registra como gasto de la residencia y se suma a favor de '+esc(pn)+' en el reparto.</p>':'')+'<div class="row2"><label class="f" for="f-categoria">Categoría<input id="f-categoria" name="categoria" list="cats" required placeholder="Electricidad"></label>'+fld('Monto (USD)','monto','','text','inputmode="decimal" required')+'</div>'+datalist('cats',CATS)+'<div class="row2">'+fld('Fecha','fecha',def,'date','required')+fld('Detalle','detalle','','text','placeholder="Factura de octubre"')+'</div>'+sel('Pagado por','pagadoPor',[['residencia','La residencia (tú)'],['socio',pn]],porSocio?'socio':'residencia'),function(d){
     if(!d.categoria)fail('Elige o escribe una categoría.');var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');if(!d.fecha)fail('Indica la fecha.');
-    var o=stamp({categoria:d.categoria,monto:monto,fecha:d.fecha,detalle:d.detalle||''});o.createdAt=o.updatedAt;
+    var o=stamp({categoria:d.categoria,monto:monto,fecha:d.fecha,detalle:d.detalle||'',pagadoPor:d.pagadoPor==='socio'?'socio':'residencia'});o.createdAt=o.updatedAt;
     return col('expenses').add(o).then(function(){return 'Gasto registrado'});
   },{label:'Guardar gasto'});
 };
