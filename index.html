@@ -419,6 +419,8 @@ tr.expand td{padding:0 12px 16px}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3.5 17.5a1.4 1.4 0 0 0 2 2l5.8-5.8a4 4 0 0 0 5.4-5.4l-2.5 2.5-2-2z"/></svg>Gastos y mantenimiento</button>
       <button type="button" class="nav-link" data-act="view" data-v="partner">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Reparto</button>
+      <button type="button" class="nav-link" data-act="view" data-v="pocket">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V6"/><path d="M16 13h2"/></svg>De mi bolsillo</button>
     </div>
     <div class="nav-foot"><span>Hoy</span><strong id="todayLbl"></strong></div>
     <div class="nav-user">
@@ -478,7 +480,8 @@ function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 var S={rooms:[],tenants:[],payments:[],expenses:[],incidents:[],envios:[],config:{},loaded:{},
   view:lsGet('res.view')||'rooms',month:curMonth(),filter:'todas',sel:null,q:'',past:false,ptab:'todos',
   owner:false,db:null,dl:null,failed:false};
-if(['rooms','tenants','payments','expenses','partner'].indexOf(S.view)<0)S.view='rooms';
+if(['rooms','tenants','payments','expenses','partner','pocket'].indexOf(S.view)<0)S.view='rooms';
+S.ktab='pend';
 
 /* ---------- dominio ---------- */
 function roomById(id){return S.rooms.find(function(r){return r.id===id})}
@@ -674,7 +677,7 @@ V.expenses=function(){
   var ck=Object.keys(cats).sort(function(a,b){return cats[b]-cats[a]}),max=ck.length?cats[ck[0]]:1;
   var left='<section class="side panel" aria-label="Gastos por categoría" style="flex-basis:360px"><h2>Gastos por categoría</h2>'
     +(ck.length?'<ul class="list" style="display:flex;flex-direction:column;gap:12px">'+ck.map(function(k){return '<li style="flex-direction:column;gap:6px;padding:0;border:none"><div class="sec-row"><span style="font-weight:500">'+esc(k)+'</span><span class="num">'+money(cats[k])+'</span></div><div class="bar"><i style="width:'+Math.max(3,Math.round(cats[k]/max*100))+'%"></i></div></li>'}).join('')+'</ul><div class="divider"></div>':'<p class="muted" style="margin:0">Sin gastos registrados en '+esc(mLabel(M).toLowerCase())+'.</p>')
-    +(ex.length?'<p class="lbl">Detalle</p>'+ex.map(function(e){return '<div class="kv" style="align-items:center"><span><span style="color:var(--fg);font-weight:500">'+esc(e.categoria||'Otros')+'</span>'+(e.detalle?' · '+esc(e.detalle):'')+'<br><span class="small">'+fmtD(e.fecha)+(e.pagadoPor==='socio'?' · pagó '+esc(partnerName()):'')+'</span></span><span style="display:flex;align-items:center;gap:6px"><span class="num" style="color:var(--fg)">'+money(e.monto)+'</span>'+(own?'<button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>':'')+'</span></div>'}).join(''):'')
+    +(ex.length?'<p class="lbl">Detalle</p>'+ex.map(function(e){return '<div class="kv" style="align-items:center"><span><span style="color:var(--fg);font-weight:500">'+esc(e.categoria||'Otros')+'</span>'+(e.detalle?' · '+esc(e.detalle):'')+'<br><span class="small">'+fmtD(e.fecha)+(e.pagadoPor==='socio'?' · pagó '+esc(partnerName()):e.pagadoPor==='admin'?' · de tu bolsillo':'')+'</span></span><span style="display:flex;align-items:center;gap:6px"><span class="num" style="color:var(--fg)">'+money(e.monto)+'</span>'+(own?'<button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>':'')+'</span></div>'}).join(''):'')
     +'</section>';
   var cut=addDays(today(),-60),open=openIncidents().length;
   var cols=[['abierta','Abiertas'],['curso','En curso'],['resuelta','Resueltas (60 días)']].map(function(c){
@@ -768,6 +771,40 @@ function actNewEnvio(){
 };
 function actDelEnvio(b){var e=S.envios.find(function(x){return x.id===b.dataset.id});if(!e)return;openModal('Eliminar envío','<p style="margin:0">Se elimina el envío de '+money(e.monto)+' del '+fmtD(e.fecha)+'. El saldo se recalcula.</p>',function(){return col('envios').doc(e.id).delete().then(function(){return 'Envío eliminado'})},{label:'Eliminar',danger:true})}
 
+/* ---------- gastos pagados de mi bolsillo ---------- */
+V.pocket=function(){
+  var M=S.month,own=S.owner,tab=S.ktab;
+  var all=S.expenses.filter(function(e){return e.pagadoPor==='admin'}).sort(function(a,b){return (b.fecha||'')<(a.fecha||'')?-1:1});
+  var sum=function(l){return l.reduce(function(s,e){return s+(Number(e.monto)||0)},0)};
+  var mes=all.filter(function(e){return (e.fecha||'').slice(0,7)===M});
+  var pend=all.filter(function(e){return !e.reembolsadoEn}),rec=all.filter(function(e){return e.reembolsadoEn});
+  var acts=own?btn(plusIcon()+'Registrar gasto de mi bolsillo','newExpense','data-by="admin"','primary'):'';
+  var h=head('Gastos pagados con tu dinero','De mi bolsillo',acts);
+  h+='<section class="kpis" aria-label="Resumen">'
+    +kpi('Pagado en '+mShort(M),money(sum(mes)),mes.length+(mes.length===1?' gasto':' gastos'))
+    +kpi('Total pagado',money(sum(all)),'Desde el inicio')
+    +kpi('Ya recuperado',money(sum(rec)),'Devuelto por la residencia',rec.length?'c-ok':'')
+    +kpi('Por recuperar',money(sum(pend)),pend.length?pend.length+(pend.length===1?' gasto pendiente':' gastos pendientes'):'Nada pendiente',sum(pend)>0?'c-warn':'')
+    +'</section>';
+  var list=tab==='mes'?mes:tab==='pend'?pend:all;
+  var seg=[['pend','Por recuperar ('+pend.length+')'],['mes',mLabel(M)+' ('+mes.length+')'],['todos','Todos ('+all.length+')']].map(function(x){return '<button type="button" data-act="ktab" data-t="'+x[0]+'" aria-pressed="'+(tab===x[0])+'">'+esc(x[1])+'</button>'}).join('');
+  h+='<section class="sec" aria-label="Detalle"><div class="sec-row"><h2 class="sec-h">Detalle de gastos</h2><div class="seg" role="group" aria-label="Ver">'+seg+'</div></div>'
+    +'<div class="tablebox"><table style="min-width:620px"><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th class="r">Monto</th><th>Estado</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
+    +(list.length?list.map(function(e){
+      var st=e.reembolsadoEn?pill('p-ok','Recuperado '+fmtDs(e.reembolsadoEn)):pill('p-warn','Por recuperar');
+      var a=own?'<td class="r" style="white-space:nowrap">'+btn(e.reembolsadoEn?'Deshacer':'Marcar recuperado','togglePocket','data-id="'+esc(e.id)+'"','small'+(e.reembolsadoEn?' ghost':''))+' <button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button></td>':'';
+      return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.categoria||'Otros')+'</td><td class="muted">'+esc(e.detalle||'—')+'</td><td class="r num">'+money(e.monto)+'</td><td>'+st+'</td>'+a+'</tr>';
+    }).join(''):'<tr><td colspan="6" class="muted" style="padding:18px 12px">'+(all.length?'Nada en este filtro.':'Todavía no hay gastos pagados de tu bolsillo. Al registrar un gasto, elige «De mi bolsillo» en «Pagado con».')+'</td></tr>')
+    +'</tbody></table></div></section>';
+  return h;
+};
+function actTogglePocket(b){
+  var e=S.expenses.find(function(x){return x.id===b.dataset.id});if(!e)return;
+  var val=e.reembolsadoEn?'':today();b.disabled=true;
+  col('expenses').doc(e.id).update({reembolsadoEn:val}).then(function(){toast(val?'Marcado como recuperado':'Marcado como por recuperar')}).catch(function(err){b.disabled=false;toast(dbMsg(err))});
+}
+function actKtab(b){S.ktab=b.dataset.t;render()}
+
 /* ---------- render ---------- */
 var raf=0;
 function schedule(){if(raf)return;raf=requestAnimationFrame(function(){raf=0;render()})}
@@ -838,11 +875,11 @@ var FIELDS={
   rooms:{num:'num',piso:'piso',tipo:'tipo',precio:'precio',mant:'mant',nota:'nota'},
   tenants:{nombre:'nombre',roomId:'room_id',renta:'renta',telefono:'telefono',cedula:'cedula',emergencia:'emergencia',entrada:'entrada',fin:'fin',salida:'salida',diaPago:'dia_pago',deposito:'deposito',notas:'notas'},
   payments:{tenantId:'tenant_id',mes:'mes',monto:'monto',fecha:'fecha',metodo:'metodo',referencia:'referencia',tipo:'tipo'},
-  expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle',pagadoPor:'pagado_por'},
+  expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle',pagadoPor:'pagado_por',reembolsadoEn:'reembolsado_en'},
   envios:{monto:'monto',fecha:'fecha',metodo:'metodo',nota:'nota'},
   incidents:{lugar:'lugar',titulo:'titulo',detalle:'detalle',prioridad:'prioridad',fecha:'fecha',estado:'estado',resueltaEn:'resuelta_en'}
 };
-var NULLABLE={fin:1,salida:1,resuelta_en:1,room_id:1,tenant_id:1,piso:1};
+var NULLABLE={fin:1,salida:1,resuelta_en:1,reembolsado_en:1,room_id:1,tenant_id:1,piso:1};
 var HAS_UPD={rooms:1,tenants:1,incidents:1};
 function toDb(c,o){var m=FIELDS[c],r={};Object.keys(m).forEach(function(k){if(k in o){var v=o[k];if(v===''&&NULLABLE[m[k]])v=null;r[m[k]]=v}});if(HAS_UPD[c])r.updated_at=new Date().toISOString();return r}
 function fromDb(c,row){var m=FIELDS[c],o={id:row.id};Object.keys(m).forEach(function(k){var v=row[m[k]];o[k]=v==null?'':v});['precio','renta','deposito','monto'].forEach(function(k){if(k in o&&o[k]!=='')o[k]=Number(o[k])});o.createdAt=row.created_at;return o}
@@ -885,7 +922,7 @@ function readRoom(d){
   var precio=toNum(d.precio);if(!(precio>=0))fail('Escribe un precio válido, por ejemplo 180.');
   return stamp({num:d.num,piso:d.piso,tipo:d.tipo,precio:precio,mant:!!d.mant,nota:d.nota||''});
 }
-var A={partnerSettings:actPartnerSettings,newEnvio:actNewEnvio,delEnvio:actDelEnvio};
+var A={partnerSettings:actPartnerSettings,newEnvio:actNewEnvio,delEnvio:actDelEnvio,togglePocket:actTogglePocket,ktab:actKtab};
 A.view=function(b){S.view=b.dataset.v;lsSet('res.view',S.view);render();window.scrollTo(0,0)};
 A.month=function(b){S.month=shiftMonth(S.month,Number(b.dataset.d));render()};
 A.filter=function(b){S.filter=b.dataset.f;render()};
@@ -1018,10 +1055,10 @@ A.newPayment=function(b){
 };
 A.delPayment=function(b){var p=S.payments.find(function(x){return x.id===b.dataset.id});if(!p)return;var t=tenantById(p.tenantId);openModal('Eliminar pago','<p style="margin:0">Se elimina el pago de '+money(p.monto)+(t?' de '+esc(t.nombre):'')+' del '+fmtD(p.fecha)+'. La deuda del mes se recalcula.</p>',function(){return col('payments').doc(p.id).delete().then(function(){return 'Pago eliminado'})},{label:'Eliminar',danger:true})};
 A.newExpense=function(b){
-  var def=S.month===curMonth()?today():lastDay(S.month),porSocio=b&&b.dataset&&b.dataset.by==='socio',pn=partnerName();
-  openModal(porSocio?'Gasto pagado por '+pn:'Nuevo gasto',(porSocio?'<p class="muted small" style="margin:0">Se registra como gasto de la residencia y se suma a favor de '+esc(pn)+' en el reparto.</p>':'')+'<div class="row2"><label class="f" for="f-categoria">Categoría<input id="f-categoria" name="categoria" list="cats" required placeholder="Electricidad"></label>'+fld('Monto (USD)','monto','','text','inputmode="decimal" required')+'</div>'+datalist('cats',CATS)+'<div class="row2">'+fld('Fecha','fecha',def,'date','required')+fld('Detalle','detalle','','text','placeholder="Factura de octubre"')+'</div>'+sel('Pagado por','pagadoPor',[['residencia','La residencia (tú)'],['socio',pn]],porSocio?'socio':'residencia'),function(d){
+  var def=S.month===curMonth()?today():lastDay(S.month),by=b&&b.dataset&&b.dataset.by||'residencia',porSocio=by==='socio',pn=partnerName();
+  openModal(porSocio?'Gasto pagado por '+pn:by==='admin'?'Gasto de mi bolsillo':'Nuevo gasto',(porSocio?'<p class="muted small" style="margin:0">Se registra como gasto de la residencia y se suma a favor de '+esc(pn)+' en el reparto.</p>':by==='admin'?'<p class="muted small" style="margin:0">Cuenta como gasto de la residencia y queda anotado como dinero que la residencia te debe devolver.</p>':'')+'<div class="row2"><label class="f" for="f-categoria">Categoría<input id="f-categoria" name="categoria" list="cats" required placeholder="Electricidad"></label>'+fld('Monto (USD)','monto','','text','inputmode="decimal" required')+'</div>'+datalist('cats',CATS)+'<div class="row2">'+fld('Fecha','fecha',def,'date','required')+fld('Detalle','detalle','','text','placeholder="Factura de octubre"')+'</div>'+sel('Pagado con','pagadoPor',[['residencia','Dinero de la residencia'],['admin','De mi bolsillo'],['socio','Lo pagó '+pn]],by),function(d){
     if(!d.categoria)fail('Elige o escribe una categoría.');var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');if(!d.fecha)fail('Indica la fecha.');
-    var o=stamp({categoria:d.categoria,monto:monto,fecha:d.fecha,detalle:d.detalle||'',pagadoPor:d.pagadoPor==='socio'?'socio':'residencia'});o.createdAt=o.updatedAt;
+    var o=stamp({categoria:d.categoria,monto:monto,fecha:d.fecha,detalle:d.detalle||'',pagadoPor:['socio','admin'].indexOf(d.pagadoPor)>-1?d.pagadoPor:'residencia'});o.createdAt=o.updatedAt;
     return col('expenses').add(o).then(function(){return 'Gasto registrado'});
   },{label:'Guardar gasto'});
 };
