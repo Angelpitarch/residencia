@@ -1,0 +1,46 @@
+rules_version = '2';
+// Reglas de seguridad de la Residencia.
+// - Personas con cuenta: su correo debe estar confirmado y aparecer en /roles.
+//   role "admin" lee y escribe; role "lector" solo lee.
+// - Invitados con enlace secreto: entran de forma anónima y registran el código
+//   del enlace en /guestSessions; solo leen mientras ese código siga vigente.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myEmail() { return request.auth.token.email != null ? request.auth.token.email.lower() : ''; }
+    function verified() { return request.auth.token.email_verified == true; }
+    function roleDoc() { return /databases/$(database)/documents/roles/$(myEmail()); }
+    function hasRole() { return signedIn() && myEmail() != '' && verified() && exists(roleDoc()); }
+    function isAdmin() { return hasRole() && get(roleDoc()).data.role == 'admin'; }
+    function guestToken() { return get(/databases/$(database)/documents/secret/guest).data.token; }
+    function isGuest() {
+      return signedIn()
+        && request.auth.token.firebase.sign_in_provider == 'anonymous'
+        && exists(/databases/$(database)/documents/guestSessions/$(request.auth.uid))
+        && get(/databases/$(database)/documents/guestSessions/$(request.auth.uid)).data.token == guestToken();
+    }
+    function dataCol(c) { return c in ['config', 'rooms', 'tenants', 'payments', 'expenses', 'incidents', 'envios']; }
+
+    match /{c}/{id} {
+      allow read: if dataCol(c) && (hasRole() || isGuest());
+      allow write: if dataCol(c) && isAdmin();
+    }
+
+    match /roles/{email} {
+      allow read: if isAdmin() || (signedIn() && myEmail() == email);
+      allow write: if isAdmin();
+    }
+
+    match /secret/{id} {
+      allow read, write: if isAdmin();
+    }
+
+    match /guestSessions/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['token', 'at'])
+        && exists(/databases/$(database)/documents/secret/guest)
+        && request.resource.data.token == guestToken();
+    }
+  }
+}

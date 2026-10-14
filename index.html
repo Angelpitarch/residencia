@@ -6,7 +6,9 @@
 <meta name="robots" content="noindex">
 <title>Panel de la Residencia</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%232E8B72'/%3E%3Cpath d='M5 19h14M7 19V10l5-4 5 4v9M10.5 19v-4h3v4' fill='none' stroke='white' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
 <style>
@@ -392,7 +394,9 @@ tr.expand td{padding:0 12px 16px}
       <button type="button" class="linkbtn" id="toLogin" hidden>Volver a entrar</button>
     </div>
     <div id="noAccess" hidden style="display:flex;flex-direction:column;gap:12px">
-      <p style="margin:0">Tu cuenta <strong id="naEmail"></strong> todavía no tiene acceso a esta residencia. Pide a la administración que invite este correo y vuelve a entrar.</p>
+      <p style="margin:0" id="naText"></p>
+      <button type="button" class="btn primary" id="naCheck" hidden>Ya lo confirmé</button>
+      <button type="button" class="btn" id="naResend" hidden>Reenviar correo de confirmación</button>
       <button type="button" class="btn" id="naOut">Cerrar sesión</button>
     </div>
   </div>
@@ -757,7 +761,7 @@ function actPartnerSettings(){
     +sel('Se calcula sobre','socio_base',[['neto','La ganancia (cobrado − gastos)'],['cobrado','Todo lo cobrado']],c.socio_base||'neto')+'</div>',function(d){
     if(!d.socio_nombre)fail('Escribe el nombre.');
     var pct=toNum(d.socio_pct);if(!(pct>=0&&pct<=100))fail('El porcentaje debe estar entre 0 y 100.');
-    return api.from('config').update({socio_nombre:d.socio_nombre,socio_pct:pct,socio_base:d.socio_base==='cobrado'?'cobrado':'neto',updated_at:new Date().toISOString()}).eq('id',1).select('id').then(chkRows).then(function(){reload('config');return 'Reparto actualizado'});
+    return saveConfig({socio_nombre:d.socio_nombre,socio_pct:pct,socio_base:d.socio_base==='cobrado'?'cobrado':'neto'}).then(function(){return 'Reparto actualizado'});
   });
 };
 function actNewEnvio(){
@@ -851,10 +855,10 @@ document.getElementById('modal').addEventListener('keydown',function(e){if(e.key
 function dbMsg(err){
   if(!err)return 'No se pudo guardar. Intenta de nuevo.';
   if(isNetErr(err))return 'No se pudo enviar el cambio: tu navegador no llegó al servidor. Revisa tu conexión. Si sigue pasando, prueba en una ventana de incógnito o desactiva extensiones o la protección de datos del antivirus para esta página.';
-  if(err.code==='42501')return 'Solo la administración puede modificar los datos.';
-  if(err.code==='23505')return 'Ya existe un registro igual (por ejemplo, el mismo número de habitación).';
-  if(err.code==='23514'||err.code==='22P02'||err.code==='22007')return 'Algún dato no tiene el formato correcto. Revisa montos y fechas.';
-  if(err.code==='PGRST301'||err.status===401)return 'Tu sesión expiró. Vuelve a entrar.';
+  if(err.code==='permission-denied')return 'Solo la administración puede modificar los datos.';
+  if(err.code==='not-found')return 'Ese registro ya no existe. Otra persona pudo haberlo eliminado.';
+  if(err.code==='unauthenticated')return 'Tu sesión expiró. Vuelve a entrar.';
+  if(err.code==='resource-exhausted')return 'Se alcanzó el límite diario gratuito de la base de datos. Vuelve a intentarlo mañana.';
   if(err.code)return 'No se pudo guardar ('+err.code+'). Revisa tu conexión y vuelve a intentarlo.';
   return err.message||'No se pudo guardar. Intenta de nuevo.';
 }
@@ -865,12 +869,11 @@ function area(label,name,val){return '<label class="f" for="f-'+name+'">'+label+
 function sel(label,name,opts,val,attrs){return '<label class="f" for="f-'+name+'">'+label+'<select id="f-'+name+'" name="'+name+'" '+(attrs||'')+'>'+opts.map(function(o){return '<option value="'+esc(o[0])+'"'+(String(o[0])===String(val)?' selected':'')+'>'+esc(o[1])+'</option>'}).join('')+'</select></label>'}
 function radios(legend,name,opts,val){return '<fieldset><legend>'+legend+'</legend><div class="radios">'+opts.map(function(o,i){return '<label><input type="radio" id="f-'+name+i+'" name="'+name+'" value="'+esc(o)+'"'+(o===val?' checked':'')+'> '+esc(o)+'</label>'}).join('')+'</div></fieldset>'}
 function datalist(id,arr){return '<datalist id="'+id+'">'+arr.map(function(x){return '<option value="'+esc(x)+'"></option>'}).join('')+'</datalist>'}
-/* ---------- datos en Supabase ---------- */
-var SB_URL='https://odzlpshxspviaetbxlef.supabase.co';
-var SB_KEY='sb_publishable_vM7I33dITDKmfBcFJpbLAg_0trw0p0g';
-var sb=window.supabase.createClient(SB_URL,SB_KEY);
-var api=sb,guest=false,guestPoll=0;
-function guestClient(tok){return window.supabase.createClient(SB_URL,SB_KEY,{global:{headers:{'x-guest-token':tok}},auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'res-guest'}})}
+/* ---------- datos en Firebase ---------- */
+firebase.initializeApp({apiKey:'AIzaSyDrDl1J2S83j7IQ3GVonWOD25JOC2HgCag',authDomain:'residencia-ae9f0.firebaseapp.com',projectId:'residencia-ae9f0',storageBucket:'residencia-ae9f0.firebasestorage.app',messagingSenderId:'67989917795',appId:'1:67989917795:web:745da8474f427a438ee856'});
+var auth=firebase.auth(),fdb=firebase.firestore();
+auth.languageCode='es';
+var guest=false,unsubs=[];
 var FIELDS={
   rooms:{num:'num',piso:'piso',tipo:'tipo',precio:'precio',mant:'mant',nota:'nota'},
   tenants:{nombre:'nombre',roomId:'room_id',renta:'renta',telefono:'telefono',cedula:'cedula',emergencia:'emergencia',entrada:'entrada',fin:'fin',salida:'salida',diaPago:'dia_pago',deposito:'deposito',notas:'notas'},
@@ -883,33 +886,38 @@ var NULLABLE={fin:1,salida:1,resuelta_en:1,reembolsado_en:1,room_id:1,tenant_id:
 var HAS_UPD={rooms:1,tenants:1,incidents:1};
 function toDb(c,o){var m=FIELDS[c],r={};Object.keys(m).forEach(function(k){if(k in o){var v=o[k];if(v===''&&NULLABLE[m[k]])v=null;r[m[k]]=v}});if(HAS_UPD[c])r.updated_at=new Date().toISOString();return r}
 function fromDb(c,row){var m=FIELDS[c],o={id:row.id};Object.keys(m).forEach(function(k){var v=row[m[k]];o[k]=v==null?'':v});['precio','renta','deposito','monto'].forEach(function(k){if(k in o&&o[k]!=='')o[k]=Number(o[k])});o.createdAt=row.created_at;return o}
-function chk(res){if(res.error)throw res.error;return res.data}
-function chkRows(res){var d=chk(res);if(!d||!d.length){var e=new Error('denied');e.code='42501';throw e}return d}
-function isNetErr(e){var m=String(e&&(e.message||e.details)||'');return e instanceof TypeError||/failed to fetch|networkerror|load failed|network request failed/i.test(m)}
-function retry(run){return run().then(function(res){if(res&&res.error&&isNetErr(res.error))return new Promise(function(ok){setTimeout(ok,900)}).then(run);return res},function(e){if(isNetErr(e))return new Promise(function(ok){setTimeout(ok,900)}).then(run);throw e})}
+function isNetErr(e){var m=String(e&&(e.message||'')||'');return !!e&&(e.code==='unavailable'||e.code==='auth/network-request-failed'||e instanceof TypeError||/failed to fetch|network/i.test(m))}
 function col(c){
   return {
-    add:function(o){var row=toDb(c,o);return retry(function(){return api.from(c).insert(row).select('id').single()}).then(chk).then(function(d){reload(c);return {id:d.id}})},
-    doc:function(id){return {
-      update:function(o){var row=toDb(c,o);return retry(function(){return api.from(c).update(row).eq('id',id).select('id')}).then(chkRows).then(function(){reload(c)})},
-      delete:function(){return retry(function(){return api.from(c).delete().eq('id',id).select('id')}).then(chkRows).then(function(){reload(c)})}
+    add:function(o){var row=toDb(c,o);row.created_at=new Date().toISOString();var ref=fdb.collection(c).doc();return ref.set(row).then(function(){return {id:ref.id}})},
+    doc:function(id){var ref=fdb.collection(c).doc(id);return {
+      update:function(o){return ref.update(toDb(c,o))},
+      delete:function(){return ref.delete()}
     }}
   };
 }
-function fetchAll(c){
-  var out=[],step=1000;
-  function page(from){return api.from(c).select('*').order('created_at',{ascending:true}).range(from,from+step-1).then(chk).then(function(d){out=out.concat(d);return d.length===step?page(from+step):out})}
-  return page(0);
+function cfgDoc(){return fdb.collection('config').doc('main')}
+function saveConfig(o){o.updated_at=new Date().toISOString();return cfgDoc().set(o,{merge:true})}
+function stopListening(){unsubs.forEach(function(u){try{u()}catch(e){}});unsubs=[]}
+function listen(){
+  stopListening();
+  COLS.forEach(function(c){
+    unsubs.push(fdb.collection(c).onSnapshot(function(snap){
+      S[c]=snap.docs.map(function(d){var r=d.data();r.id=d.id;return fromDb(c,r)}).sort(function(a,b){return String(a.createdAt||'')<String(b.createdAt||'')?-1:1});
+      S.loaded[c]=true;schedule();
+    },function(err){
+      S.loaded[c]=true;console.error(c,err);
+      if(guest&&err&&err.code==='permission-denied'){guestInvalid(err);return}
+      toast('No se pudieron cargar algunos datos. Revisa tu conexión.');schedule();
+    }));
+  });
+  unsubs.push(cfgDoc().onSnapshot(function(s){S.config=s.exists?(s.data()||{}):{};schedule()},function(){}));
 }
-var reloadT={};
-function reload(c){
-  clearTimeout(reloadT[c]);
-  reloadT[c]=setTimeout(function(){
-    if(c==='config'){api.from('config').select('nombre,socio_nombre,socio_pct,socio_base').eq('id',1).maybeSingle().then(chk).then(function(d){S.config=d||{};schedule()}).catch(function(){});return}
-    fetchAll(c).then(function(rows){S[c]=rows.map(function(r){return fromDb(c,r)});S.loaded[c]=true;schedule()}).catch(function(e){S.loaded[c]=true;console.error(e);toast('No se pudieron cargar algunos datos. Revisa tu conexión.');schedule()});
-  },60);
-}
+function reload(){}
 function stamp(o){o.updatedAt=new Date().toISOString();return o}
+function genToken(){var a=new Uint8Array(18);crypto.getRandomValues(a);return btoa(String.fromCharCode.apply(null,a)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+function guestRef(){return fdb.collection('secret').doc('guest')}
+function ensureGuestToken(){return guestRef().get().then(function(s){if(s.exists&&s.data().token)return s.data().token;var t=genToken();return guestRef().set({token:t,updated_at:new Date().toISOString()}).then(function(){return t})})}
 
 /* ---------- acciones ---------- */
 function roomForm(r){
@@ -929,23 +937,23 @@ A.filter=function(b){S.filter=b.dataset.f;render()};
 A.ptab=function(b){S.ptab=b.dataset.t;render()};
 A.closeModal=closeModal;
 A.selTenant=function(b){var id=b.dataset.id;S.sel=S.sel===id?null:id;var tb=document.getElementById('trows');if(tb){tb.innerHTML=tenantRows();var nb=tb.querySelector('[data-act="selTenant"][data-id="'+id.replace(/"/g,'')+'"]');if(nb)nb.focus()}else render()};
-A.settings=function(){openModal('Nombre de la residencia',fld('Nombre','nombre',S.config.nombre||'','text','required placeholder="Residencia Los Samanes"'),function(d){if(!d.nombre)fail('Escribe un nombre.');return api.from('config').update({nombre:d.nombre,updated_at:new Date().toISOString()}).eq('id',1).select('id').then(chkRows).then(function(){reload('config');return 'Nombre actualizado'})})};
-A.signOut=function(){sb.auth.signOut()};
+A.settings=function(){openModal('Nombre de la residencia',fld('Nombre','nombre',S.config.nombre||'','text','required placeholder="Residencia Los Samanes"'),function(d){if(!d.nombre)fail('Escribe un nombre.');return saveConfig({nombre:d.nombre}).then(function(){return 'Nombre actualizado'})})};
+A.signOut=function(){auth.signOut()};
 A.access=function(){
   if(!S.owner)return;
-  Promise.all([api.from('invites').select('email,role,created_at').order('created_at'),api.from('members').select('email,role'),api.rpc('get_guest_link')]).then(function(r){
-    var inv=chk(r[0])||[],mem=chk(r[1])||[],gtok=chk(r[2])||'';
-    var glink=location.origin+location.pathname+'#invitado='+gtok;
+  Promise.all([fdb.collection('roles').get(),ensureGuestToken()]).then(function(r){
+    var inv=r[0].docs.map(function(d){return {email:d.id,role:(d.data()||{}).role}}).sort(function(a,b){return a.role===b.role?(a.email<b.email?-1:1):(a.role==='admin'?-1:1)});
+    var glink=location.origin+location.pathname+'#invitado='+r[1];
     var gsec='<p class="lbl">Enlace para invitados</p><p class="muted small" style="margin:0">Quien abra este enlace ve todo en modo solo lectura, sin iniciar sesión. Compártelo solo con quien corresponda.</p><label class="f" for="f-glink"><span class="small muted">Enlace secreto</span><input id="f-glink" type="text" readonly value="'+esc(glink)+'"></label><div class="actions">'+btn('Copiar enlace','copyGuest','','small primary')+btn('Generar enlace nuevo','rotateGuest','','small')+'</div><div class="divider"></div><p class="lbl">Personas con cuenta</p>';
-    var active={};mem.forEach(function(m){active[m.email]=1});
     var list=inv.map(function(i){
       var me=i.email===S.email;
-      return '<div class="inv"><div style="min-width:0"><div style="font-weight:600;overflow-wrap:anywhere">'+esc(i.email)+(me?' (tú)':'')+'</div><div class="small muted">'+(i.role==='admin'?'Administración · puede editar':'Solo lectura')+' · '+(active[i.email]?'cuenta activa':'falta crear su cuenta')+'</div></div>'+(me?'':btn('Quitar','delInvite','data-email="'+esc(i.email)+'"','small ghost'))+'</div>';
+      return '<div class="inv"><div style="min-width:0"><div style="font-weight:600;overflow-wrap:anywhere">'+esc(i.email)+(me?' (tú)':'')+'</div><div class="small muted">'+(i.role==='admin'?'Administración · puede editar':'Solo lectura')+'</div></div>'+(me?'':btn('Quitar','delInvite','data-email="'+esc(i.email)+'"','small ghost'))+'</div>';
     }).join('');
-    openModal('Acceso de personas',gsec+'<div>'+list+'</div><div class="divider"></div><p class="lbl">Invitar a otra persona</p><div class="row2">'+fld('Correo','email','','email','placeholder="persona@correo.com"')+sel('Permiso','role',[['lector','Solo lectura'],['admin','Puede editar']],'lector')+'</div><p class="muted small" style="margin:0">Después de invitarla, la persona abre el enlace de la app, elige «Crea tu cuenta» y usa exactamente este correo.</p>',function(d){
+    var bsec='<div class="divider"></div><p class="lbl">Respaldo de datos</p><p class="muted small" style="margin:0">Descarga una copia de todos los datos en un archivo. Guárdalo en un lugar seguro: incluye cédulas y teléfonos.</p><div class="actions">'+btn('Descargar respaldo','backup','','small')+btn('Importar respaldo','importBackup','','small ghost')+'</div>';
+    openModal('Acceso de personas',gsec+'<div>'+list+'</div><div class="divider"></div><p class="lbl">Invitar a otra persona</p><div class="row2">'+fld('Correo','email','','email','placeholder="persona@correo.com"')+sel('Permiso','role',[['lector','Solo lectura'],['admin','Puede editar']],'lector')+'</div><p class="muted small" style="margin:0">Después de invitarla, la persona abre el enlace de la app, elige «Crea tu cuenta» con exactamente este correo y lo confirma.</p>'+bsec,function(d){
       var email=String(d.email||'').trim().toLowerCase();
       if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))fail('Escribe un correo válido.');
-      return api.from('invites').upsert({email:email,role:d.role==='admin'?'admin':'lector'}).select('email').then(chkRows).then(function(){setTimeout(A.access,50);return email+' invitado'});
+      return fdb.collection('roles').doc(email).set({role:d.role==='admin'?'admin':'lector',created_at:new Date().toISOString()}).then(function(){setTimeout(A.access,50);return email+' invitado'});
     },{label:'Invitar'});
   }).catch(function(e){toast(dbMsg(e))});
 };
@@ -956,13 +964,40 @@ A.copyGuest=function(){
 };
 A.rotateGuest=function(){
   openModal('Generar enlace nuevo','<p style="margin:0">El enlace actual dejará de funcionar de inmediato. Tendrás que enviar el nuevo a quienes deban seguir viendo la app.</p>',function(){
-    return api.rpc('rotate_guest_link').then(chk).then(function(){setTimeout(A.access,50);return 'Enlace nuevo generado'});
+    return guestRef().set({token:genToken(),updated_at:new Date().toISOString()}).then(function(){setTimeout(A.access,50);return 'Enlace nuevo generado'});
   },{label:'Generar enlace nuevo',danger:true});
 };
 A.delInvite=function(b){
   var email=b.dataset.email;
-  openModal('Quitar acceso','<p style="margin:0">'+esc(email)+' dejará de poder abrir la app.</p>',function(){return api.from('invites').delete().eq('email',email).select('email').then(chkRows).then(function(){setTimeout(A.access,50);return 'Acceso quitado'})},{label:'Quitar acceso',danger:true});
+  openModal('Quitar acceso','<p style="margin:0">'+esc(email)+' dejará de poder abrir la app.</p>',function(){return fdb.collection('roles').doc(email).delete().then(function(){setTimeout(A.access,50);return 'Acceso quitado'})},{label:'Quitar acceso',danger:true});
 };
+A.backup=function(){
+  Promise.all(COLS.map(function(c){return fdb.collection(c).get()}).concat([cfgDoc().get()])).then(function(r){
+    var out={app:'residencia',version:1,exportado:new Date().toISOString(),config:r[COLS.length].exists?r[COLS.length].data():{}};
+    COLS.forEach(function(c,i){out[c]=r[i].docs.map(function(d){var o=d.data();o.id=d.id;return o})});
+    save('respaldo-residencia-'+today()+'.json',JSON.stringify(out,null,1),'application/json');
+  }).catch(function(e){toast(dbMsg(e))});
+};
+A.importBackup=function(){
+  var inp=document.createElement('input');inp.type='file';inp.accept='.json,application/json';
+  inp.onchange=function(){
+    var f=inp.files&&inp.files[0];if(!f)return;
+    f.text().then(function(txt){
+      var data;try{data=JSON.parse(txt)}catch(e){toast('Ese archivo no es un respaldo válido.');return}
+      var n=COLS.reduce(function(s,c){return s+((data[c]||[]).length)},0);
+      openModal('Importar respaldo','<p style="margin:0">Se van a cargar '+n+' registros de «'+esc(f.name)+'». Los registros con el mismo identificador se reemplazan; los demás se conservan.</p>',function(){return importData(data).then(function(k){return k+' registros importados'})},{label:'Importar'});
+    });
+  };
+  inp.click();
+};
+function importData(data){
+  var ops=[];
+  COLS.forEach(function(c){(data[c]||[]).forEach(function(row){var o=Object.assign({},row),id=String(o.id||'');delete o.id;if(!id)return;if(!o.created_at)o.created_at=new Date().toISOString();ops.push([fdb.collection(c).doc(id),o])})});
+  if(data.config&&Object.keys(data.config).length){var cf=Object.assign({},data.config);delete cf.id;ops.push([cfgDoc(),cf])}
+  var chain=Promise.resolve();
+  for(var i=0;i<ops.length;i+=400){(function(part){chain=chain.then(function(){var b=fdb.batch();part.forEach(function(op){b.set(op[0],op[1],{merge:true})});return b.commit()})})(ops.slice(i,i+400))}
+  return chain.then(function(){return ops.length});
+}
 A.newRoom=function(){openModal('Nueva habitación',roomForm(),function(d){var o=readRoom(d);if(S.rooms.some(function(r){return String(r.num).toLowerCase()===o.num.toLowerCase()}))fail('Ya existe la habitación '+o.num+'.');o.createdAt=o.updatedAt;return col('rooms').add(o).then(function(){return 'Habitación '+o.num+' creada'})},{label:'Crear habitación'})};
 A.editRoom=function(b){
   var r=roomById(b.dataset.id);if(!r)return;
@@ -1082,8 +1117,8 @@ A.copyMsg=function(b){
 };
 function csvCell(v){v=String(v==null?'':v);return /[";\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v}
 function csv(rows){return '﻿'+rows.map(function(r){return r.map(csvCell).join(';')}).join('\r\n')}
-function save(name,data){
-  var url=URL.createObjectURL(new Blob([data],{type:'text/csv;charset=utf-8'}));
+function save(name,data,type){
+  var url=URL.createObjectURL(new Blob([data],{type:(type||'text/csv')+';charset=utf-8'}));
   var a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();
   setTimeout(function(){URL.revokeObjectURL(url)},2000);toast('Archivo descargado');
 }
@@ -1116,111 +1151,115 @@ var toastT=0;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
 
 /* ---------- acceso ---------- */
-var authMode='login',channel=null,currentUser=null;
+var authMode='login',currentUser=null,pendingGuest=null;
 var $=function(id){return document.getElementById(id)};
 function authMsg(txt,kind){var m=$('authMsg');if(!txt){m.hidden=true;return}m.textContent=txt;m.className='auth-msg '+(kind||'err');m.hidden=false}
 function setAuthMode(mode){
   authMode=mode;authMsg('');
-  var t={login:['Entrar','Entrar'],signup:['Crear cuenta','Crear cuenta'],reset:['Recuperar contraseña','Enviar enlace'],newpass:['Nueva contraseña','Guardar contraseña']}[mode];
+  var t={login:['Entrar','Entrar'],signup:['Crear cuenta','Crear cuenta'],reset:['Recuperar contraseña','Enviar enlace']}[mode]||['Entrar','Entrar'];
   $('authTitle').textContent=t[0];$('authSubmit').textContent=t[1];
-  $('a-email-wrap').hidden=mode==='newpass';$('a-pass-wrap').hidden=mode==='reset';
+  $('a-email-wrap').hidden=false;$('a-pass-wrap').hidden=mode==='reset';
   $('a-pass').setAttribute('autocomplete',mode==='login'?'current-password':'new-password');
-  $('toSignup').hidden=mode!=='login';$('toReset').hidden=mode!=='login';$('toLogin').hidden=mode==='login'||mode==='newpass';
+  $('toSignup').hidden=mode!=='login';$('toReset').hidden=mode!=='login';$('toLogin').hidden=mode==='login';
   $('authForm').hidden=false;$('authLinks').hidden=false;$('noAccess').hidden=true;
 }
 function showAuth(mode){
   $('app').hidden=true;$('auth').hidden=false;setAuthMode(mode||'login');
-  if(channel){sb.removeChannel(channel);channel=null}
+  stopListening();
   S.db=null;S.loaded={};COLS.forEach(function(c){S[c]=[]});
 }
-function showNoAccess(email){
-  $('app').hidden=true;$('auth').hidden=false;$('authTitle').textContent='Sin acceso';authMsg('');
-  $('authForm').hidden=true;$('authLinks').hidden=true;$('naEmail').textContent=email;$('noAccess').hidden=false;
+function showCard(title,parts,opts){
+  stopListening();S.db=null;
+  $('app').hidden=true;$('auth').hidden=false;$('authTitle').textContent=title;authMsg('');
+  $('authForm').hidden=true;$('authLinks').hidden=true;$('noAccess').hidden=false;
+  var p=$('naText');p.textContent='';
+  parts.forEach(function(x){if(typeof x==='string')p.appendChild(document.createTextNode(x));else{var b=document.createElement('strong');b.textContent=x.b;p.appendChild(b)}});
+  $('naCheck').hidden=!(opts&&opts.verify);$('naResend').hidden=!(opts&&opts.verify);
 }
+function showNoAccess(email){showCard('Sin acceso',['Tu cuenta ',{b:email},' todavía no tiene acceso a esta residencia. Pide a la administración que invite este correo y vuelve a entrar.'])}
+function showVerify(email){showCard('Confirma tu correo',['Te enviamos un correo a ',{b:email},'. Abre el enlace que trae para confirmar tu cuenta y luego presiona «Ya lo confirmé». Si no lo ves, revisa la carpeta de spam.'],{verify:true})}
 function authErr(e){
-  var m=(e&&e.message||'').toLowerCase();
-  if(m.indexOf('invalid login')>-1)return 'Correo o contraseña incorrectos.';
-  if(m.indexOf('email not confirmed')>-1)return 'Primero confirma tu correo con el enlace que te enviamos.';
-  if(m.indexOf('already registered')>-1)return 'Ese correo ya tiene cuenta. Usa «Volver a entrar».';
-  if(m.indexOf('password')>-1&&m.indexOf('6')>-1)return 'La contraseña debe tener al menos 6 caracteres.';
-  if(m.indexOf('rate limit')>-1)return 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+  var c=e&&e.code||'';
+  if(c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-login-credentials')return 'Correo o contraseña incorrectos.';
+  if(c==='auth/email-already-in-use')return 'Ese correo ya tiene cuenta. Usa «Volver a entrar».';
+  if(c==='auth/weak-password')return 'La contraseña debe tener al menos 6 caracteres.';
+  if(c==='auth/invalid-email')return 'Escribe un correo válido.';
+  if(c==='auth/too-many-requests')return 'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.';
+  if(c==='auth/network-request-failed')return 'No se pudo conectar. Revisa tu conexión.';
+  if(c==='auth/operation-not-allowed')return 'Este método de acceso no está activado en Firebase.';
   return e&&e.message?e.message:'No se pudo completar. Revisa tu conexión.';
 }
 $('toSignup').onclick=function(){setAuthMode('signup')};
 $('toReset').onclick=function(){setAuthMode('reset')};
 $('toLogin').onclick=function(){setAuthMode('login')};
-$('naOut').onclick=function(){sb.auth.signOut()};
+$('naOut').onclick=function(){auth.signOut()};
+$('naResend').onclick=function(){var u=auth.currentUser;if(!u)return;u.sendEmailVerification().then(function(){toast('Correo reenviado a '+u.email)}).catch(function(e){toast(authErr(e))})};
+$('naCheck').onclick=function(){var u=auth.currentUser;if(!u)return;currentUser=null;enterApp(u)};
 $('authForm').addEventListener('submit',function(e){
   e.preventDefault();
   var email=$('a-email').value.trim().toLowerCase(),pass=$('a-pass').value,btnS=$('authSubmit');
-  var here=location.origin+location.pathname;
-  if(authMode!=='newpass'&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){authMsg('Escribe un correo válido.');return}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){authMsg('Escribe un correo válido.');return}
   if(authMode!=='reset'&&pass.length<6){authMsg('La contraseña debe tener al menos 6 caracteres.');return}
   btnS.disabled=true;authMsg('');
   var p;
-  if(authMode==='login')p=sb.auth.signInWithPassword({email:email,password:pass});
-  else if(authMode==='signup')p=sb.auth.signUp({email:email,password:pass,options:{emailRedirectTo:here}}).then(function(r){if(r.error)return r;if(!r.data.session){authMsg('Te enviamos un correo a '+email+'. Abre el enlace para confirmar tu cuenta y luego entra aquí.','ok');setTimeout(function(){authMode='login';$('authTitle').textContent='Entrar';$('authSubmit').textContent='Entrar';$('toSignup').hidden=false;$('toReset').hidden=false;$('toLogin').hidden=true;$('a-pass').value=''},0)}return r});
-  else if(authMode==='reset')p=sb.auth.resetPasswordForEmail(email,{redirectTo:here}).then(function(r){if(!r.error)authMsg('Si ese correo tiene cuenta, te llegará un enlace para crear una contraseña nueva.','ok');return r});
-  else p=sb.auth.updateUser({password:pass}).then(function(r){if(!r.error){toast('Contraseña actualizada');history.replaceState(null,'',here);start()}return r});
-  p.then(function(r){btnS.disabled=false;if(r&&r.error)authMsg(authErr(r.error))}).catch(function(err){btnS.disabled=false;authMsg(authErr(err))});
+  if(authMode==='login')p=auth.signInWithEmailAndPassword(email,pass);
+  else if(authMode==='signup')p=auth.createUserWithEmailAndPassword(email,pass).then(function(cred){return cred.user.sendEmailVerification()});
+  else p=auth.sendPasswordResetEmail(email).then(function(){authMsg('Si ese correo tiene cuenta, te llegará un enlace para crear una contraseña nueva.','ok')});
+  p.then(function(){btnS.disabled=false}).catch(function(err){btnS.disabled=false;authMsg(authErr(err))});
 });
 
 function enterApp(user){
-  if(currentUser&&currentUser.id===user.id)return;
-  currentUser=user;S.email=(user.email||'').toLowerCase();
-  api.from('members').select('role').eq('user_id',user.id).maybeSingle().then(function(r){
-    if(r.error){showAuth('login');authMsg('No se pudo verificar tu acceso. Revisa tu conexión y vuelve a entrar.');return}
-    if(!r.data){showNoAccess(S.email);return}
-    S.owner=r.data.role==='admin';S.db=sb;
-    $('auth').hidden=true;$('app').hidden=false;
-    $('userEmail').textContent=S.email;$('accessBtn').hidden=!S.owner;$('signOutBtn').hidden=false;
-    render();
-    COLS.forEach(reload);reload('config');
-    if(channel)sb.removeChannel(channel);
-    channel=sb.channel('residencia');
-    COLS.concat(['config']).forEach(function(t){channel.on('postgres_changes',{event:'*',schema:'public',table:t},function(){reload(t)})});
-    channel.subscribe();
+  if(currentUser&&currentUser.uid===user.uid&&S.db)return;
+  currentUser=user;guest=false;S.email=(user.email||'').toLowerCase();
+  var fresh=user.emailVerified?Promise.resolve():user.reload().then(function(){return auth.currentUser.getIdToken(true)});
+  fresh.then(function(){
+    var u=auth.currentUser;if(!u||u.uid!==user.uid)return;
+    if(!u.emailVerified){showVerify(S.email);return}
+    return fdb.collection('roles').doc(S.email).get().then(function(s){
+      if(!s.exists){showNoAccess(S.email);return}
+      S.owner=(s.data()||{}).role==='admin';S.db=fdb;
+      $('auth').hidden=true;$('app').hidden=false;
+      $('userEmail').textContent=S.email;$('accessBtn').hidden=!S.owner;$('signOutBtn').hidden=false;
+      render();listen();
+    });
+  }).catch(function(err){
+    currentUser=null;
+    if(err&&err.code==='permission-denied'){showNoAccess(S.email);return}
+    showAuth('login');authMsg(isNetErr(err)?'No se pudo conectar. Revisa tu conexión y vuelve a entrar.':'No se pudo verificar tu acceso. Vuelve a entrar.');
   });
 }
-function linkError(){
-  var h=location.hash||'';if(h.indexOf('error=')<0)return '';
-  var p=new URLSearchParams(h.slice(1)),code=p.get('error_code')||p.get('error')||'';
-  history.replaceState(null,'',location.origin+location.pathname);
-  if(code==='otp_expired')return 'Ese enlace del correo ya se usó o venció. Si ya confirmaste tu cuenta, entra con tu correo y contraseña. Si no, pide un correo nuevo y abre el más reciente.';
-  return 'El enlace del correo no es válido. Entra con tu correo y contraseña o pide uno nuevo.';
+function guestInvalid(err){
+  var net=isNetErr(err);
+  stopListening();guest=false;currentUser=null;pendingGuest=null;lsSet('res.guest','');
+  var u=auth.currentUser;if(u&&u.isAnonymous)auth.signOut().catch(function(){});
+  showAuth('login');authMsg(net?'No se pudo conectar. Revisa tu conexión y recarga la página.':'Este enlace de invitado ya no es válido. Pide el enlace nuevo a la administración.');
 }
 function enterGuest(tok){
-  guest=true;api=guestClient(tok);currentUser={id:'guest'};
-  api.from('config').select('nombre').eq('id',1).maybeSingle().then(function(r){
-    if(r.error||!r.data){
-      guest=false;api=sb;currentUser=null;lsSet('res.guest','');
-      history.replaceState(null,'',location.origin+location.pathname);
-      showAuth('login');authMsg(r.error&&isNetErr(r.error)?'No se pudo conectar. Revisa tu conexión y recarga la página.':'Este enlace de invitado ya no es válido. Pide el enlace nuevo a la administración.');
-      return;
-    }
-    lsSet('res.guest',tok);
-    S.owner=false;S.email='';S.db=api;
-    $('auth').hidden=true;$('app').hidden=false;
-    $('userEmail').textContent='Invitado · solo lectura';$('accessBtn').hidden=true;$('signOutBtn').hidden=true;
-    render();COLS.forEach(reload);reload('config');
-    clearInterval(guestPoll);guestPoll=setInterval(function(){if(!document.hidden){COLS.forEach(reload);reload('config')}},30000);
-  });
-}
-function start(){
-  var gm=(location.hash||'').match(/invitado=([A-Za-z0-9_-]{8,})/);
-  if(gm){enterGuest(gm[1]);return}
-  var le=linkError();
-  if(le){sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;if(s)enterApp(s.user);else{showAuth('login');authMsg(le)}});return}
-  sb.auth.getSession().then(function(r){var s=r.data&&r.data.session;if(s){enterApp(s.user);return}var saved=lsGet('res.guest');if(saved)enterGuest(saved);else showAuth('login')});
-}
-sb.auth.onAuthStateChange(function(ev,session){
   if(guest)return;
-  if(ev==='PASSWORD_RECOVERY'){currentUser=null;showAuth('newpass');return}
-  if(ev==='SIGNED_OUT'){currentUser=null;showAuth('login');return}
-  if((ev==='SIGNED_IN'||ev==='INITIAL_SESSION')&&session&&authMode!=='newpass')setTimeout(function(){enterApp(session.user)},0);
+  guest=true;currentUser={uid:'guest'};
+  var go=function(u){
+    fdb.collection('guestSessions').doc(u.uid).set({token:tok,at:new Date().toISOString()}).then(function(){
+      lsSet('res.guest',tok);pendingGuest=null;
+      S.owner=false;S.email='';S.db=fdb;
+      $('auth').hidden=true;$('app').hidden=false;
+      $('userEmail').textContent='Invitado · solo lectura';$('accessBtn').hidden=true;$('signOutBtn').hidden=true;
+      render();listen();
+    }).catch(guestInvalid);
+  };
+  var u=auth.currentUser;
+  if(u&&u.isAnonymous)go(u);else auth.signInAnonymously().then(function(c){go(c.user)}).catch(guestInvalid);
+}
+(function(){
+  var gm=(location.hash||'').match(/invitado=([A-Za-z0-9_-]{8,})/);
+  if(gm){pendingGuest=gm[1];history.replaceState(null,'',location.origin+location.pathname)}
+})();
+auth.onAuthStateChanged(function(u){
+  if(u&&!u.isAnonymous){enterApp(u);return}
+  var tok=pendingGuest||lsGet('res.guest');
+  if(tok){if(!guest)enterGuest(tok);return}
+  if(u&&u.isAnonymous){auth.signOut();return}
+  currentUser=null;showAuth('login');
 });
-document.addEventListener('visibilitychange',function(){if(!document.hidden&&S.db){COLS.forEach(reload);reload('config')}});
-start();
 })();
 </script>
 
