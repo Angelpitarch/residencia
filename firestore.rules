@@ -7,8 +7,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function myEmail() { return request.auth.token.email != null ? request.auth.token.email.lower() : ''; }
-    function verified() { return request.auth.token.email_verified == true; }
+    function myEmail() { return string(request.auth.token.get('email', '')).lower(); }
+    function verified() { return request.auth.token.get('email_verified', false) == true; }
     function roleDoc() { return /databases/$(database)/documents/roles/$(myEmail()); }
     function hasRole() { return signedIn() && myEmail() != '' && verified() && exists(roleDoc()); }
     function isAdmin() { return hasRole() && get(roleDoc()).data.role == 'admin'; }
@@ -29,6 +29,10 @@ service cloud.firestore {
     match /roles/{email} {
       allow read: if isAdmin() || (signedIn() && myEmail() == email);
       allow write: if isAdmin();
+      // Primer acceso de la administradora principal: puede darse su propio rol.
+      allow create: if signedIn() && verified() && email == myEmail()
+        && myEmail() == 'angelpitarch06@gmail.com'
+        && request.resource.data.role == 'admin';
     }
 
     match /secret/{id} {

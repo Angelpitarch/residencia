@@ -1151,7 +1151,7 @@ var toastT=0;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
 
 /* ---------- acceso ---------- */
-var authMode='login',currentUser=null,pendingGuest=null;
+var authMode='login',currentUser=null,pendingGuest=null,BOOT_ADMIN='angelpitarch06@gmail.com';
 var $=function(id){return document.getElementById(id)};
 function authMsg(txt,kind){var m=$('authMsg');if(!txt){m.hidden=true;return}m.textContent=txt;m.className='auth-msg '+(kind||'err');m.hidden=false}
 function setAuthMode(mode){
@@ -1215,7 +1215,11 @@ function enterApp(user){
   fresh.then(function(){
     var u=auth.currentUser;if(!u||u.uid!==user.uid)return;
     if(!u.emailVerified){showVerify(S.email);return}
-    return fdb.collection('roles').doc(S.email).get().then(function(s){
+    var roleRef=fdb.collection('roles').doc(S.email);
+    return roleRef.get().then(function(s){
+      if(!s.exists&&S.email===BOOT_ADMIN)return roleRef.set({role:'admin',created_at:new Date().toISOString()}).then(function(){return roleRef.get()});
+      return s;
+    }).then(function(s){
       if(!s.exists){showNoAccess(S.email);return}
       S.owner=(s.data()||{}).role==='admin';S.db=fdb;
       $('auth').hidden=true;$('app').hidden=false;
