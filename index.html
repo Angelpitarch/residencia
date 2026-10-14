@@ -747,7 +747,7 @@ V.partner=function(){
     +'<p class="muted small" style="margin:0">Se calcula con el porcentaje actual sobre todos los meses con movimientos.</p></aside>';
   return h+'<div class="split">'+wide+side+'</div>';
 };
-A.partnerSettings=function(){
+function actPartnerSettings(){
   var c=S.config||{};
   openModal('Configurar reparto',fld('Nombre de la otra persona responsable','socio_nombre',c.socio_nombre&&c.socio_nombre!=='Socio'?c.socio_nombre:'','text','required placeholder="Ej.: María"')
     +'<div class="row2">'+fld('Porcentaje (%)','socio_pct',c.socio_pct!=null?c.socio_pct:'','text','inputmode="decimal" required placeholder="30"')
@@ -757,7 +757,7 @@ A.partnerSettings=function(){
     return api.from('config').update({socio_nombre:d.socio_nombre,socio_pct:pct,socio_base:d.socio_base==='cobrado'?'cobrado':'neto',updated_at:new Date().toISOString()}).eq('id',1).select('id').then(chkRows).then(function(){reload('config');return 'Reparto actualizado'});
   });
 };
-A.newEnvio=function(){
+function actNewEnvio(){
   var pn=partnerName(),def=S.month===curMonth()?today():lastDay(S.month),r=partnerMonth(S.month);
   openModal('Dinero enviado a '+pn,(r.saldo>0.004?'<p class="note" style="margin:0">Saldo pendiente de '+esc(mLabel(S.month).toLowerCase())+': '+money(r.saldo)+'.</p>':'')
     +'<div class="row2">'+fld('Monto (USD)','monto',r.saldo>0.004?(Math.round(r.saldo*100)/100):'','text','inputmode="decimal" required')+fld('Fecha','fecha',def,'date','required')+'</div>'
@@ -766,7 +766,7 @@ A.newEnvio=function(){
     return col('envios').add({monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',nota:d.nota||''}).then(function(){return 'Envío de '+money(monto)+' registrado'});
   },{label:'Guardar envío'});
 };
-A.delEnvio=function(b){var e=S.envios.find(function(x){return x.id===b.dataset.id});if(!e)return;openModal('Eliminar envío','<p style="margin:0">Se elimina el envío de '+money(e.monto)+' del '+fmtD(e.fecha)+'. El saldo se recalcula.</p>',function(){return col('envios').doc(e.id).delete().then(function(){return 'Envío eliminado'})},{label:'Eliminar',danger:true})};
+function actDelEnvio(b){var e=S.envios.find(function(x){return x.id===b.dataset.id});if(!e)return;openModal('Eliminar envío','<p style="margin:0">Se elimina el envío de '+money(e.monto)+' del '+fmtD(e.fecha)+'. El saldo se recalcula.</p>',function(){return col('envios').doc(e.id).delete().then(function(){return 'Envío eliminado'})},{label:'Eliminar',danger:true})}
 
 /* ---------- render ---------- */
 var raf=0;
@@ -885,7 +885,7 @@ function readRoom(d){
   var precio=toNum(d.precio);if(!(precio>=0))fail('Escribe un precio válido, por ejemplo 180.');
   return stamp({num:d.num,piso:d.piso,tipo:d.tipo,precio:precio,mant:!!d.mant,nota:d.nota||''});
 }
-var A={};
+var A={partnerSettings:actPartnerSettings,newEnvio:actNewEnvio,delEnvio:actDelEnvio};
 A.view=function(b){S.view=b.dataset.v;lsSet('res.view',S.view);render();window.scrollTo(0,0)};
 A.month=function(b){S.month=shiftMonth(S.month,Number(b.dataset.d));render()};
 A.filter=function(b){S.filter=b.dataset.f;render()};
