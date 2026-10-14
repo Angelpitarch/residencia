@@ -372,6 +372,12 @@ tr.expand td{padding:0 12px 16px}
 .inv{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
 .inv:last-child{border-bottom:none}
 @media (max-width:760px){.nav-user{flex-direction:row;flex-wrap:wrap;align-items:center}}
+.rate-box{margin-top:auto;padding:12px 14px;border-radius:12px;background:var(--nav-soft);display:flex;flex-direction:column;gap:2px;font:inherit;font-size:12px;color:var(--nav-muted);text-align:left;border:1px solid transparent;cursor:pointer;width:100%}
+.rate-box:hover{border-color:var(--nav-active)}
+.rate-box strong{font-family:var(--f-mono);font-size:16px;font-weight:500;color:var(--nav-strong);font-variant-numeric:tabular-nums}
+.rate-box .rate-next{color:var(--nav-fg)}
+.bs{display:block;font-size:12px;color:var(--muted);font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:400}
+@media (max-width:760px){.rate-box{margin-top:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:8px;padding:8px 12px}}
 </style>
 </head>
 <body>
@@ -426,7 +432,7 @@ tr.expand td{padding:0 12px 16px}
       <button type="button" class="nav-link" data-act="view" data-v="pocket">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V6"/><path d="M16 13h2"/></svg>De mi bolsillo</button>
     </div>
-    <div class="nav-foot"><span>Hoy</span><strong id="todayLbl"></strong></div>
+    <button type="button" class="rate-box" id="rateBox" data-act="tasa" aria-label="Tasa BCV: ver detalle"><span>Tasa BCV</span><strong id="rateVal">—</strong><span id="rateSub">Consultando…</span><span class="rate-next" id="rateNext" hidden></span></button><span id="todayLbl" hidden></span>
     <div class="nav-user">
       <span id="userEmail"></span>
       <button type="button" data-act="access" id="accessBtn" hidden>Acceso de personas</button>
@@ -475,6 +481,77 @@ function days(a,b){return Math.round((utc(b)-utc(a))/864e5)}
 function addDays(s,n){var d=new Date(utc(s)+n*864e5);return d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate())}
 function money(n){n=Number(n)||0;return '$'+(Math.round(n*100)/100).toLocaleString('es-VE',{maximumFractionDigits:2})}
 function toNum(v){var n=parseFloat(String(v==null?'':v).replace(/\s/g,'').replace(',','.'));return isFinite(n)?n:NaN}
+function parseAmt(v){var x=String(v==null?'':v).replace(/[\sBbSs$.]*$/,'').replace(/^[^\d-]+/,'').replace(/\s/g,'');if(x.indexOf(',')>-1)x=x.replace(/\./g,'').replace(',','.');else if((x.match(/\./g)||[]).length>1)x=x.replace(/\./g,'');var n=parseFloat(x);return isFinite(n)?n:NaN}
+function bs(n){n=Number(n)||0;return 'Bs. '+(Math.round(n*100)/100).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function nf4(n){return (Number(n)||0).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:4})}
+/* ---------- tasa oficial BCV ---------- */
+var TASA_URL='https://xtdmenweohlisxirfmil.supabase.co/functions/v1/tasa-publica',remoteHist=[],tasaInfo={estado:'cargando'};
+function tasaHist(){var m={};((S.config&&S.config.tasasHist)||[]).concat(remoteHist).forEach(function(h){if(h&&/^\d{4}-\d{2}-\d{2}$/.test(h.fecha||'')&&Number(h.valor)>0&&!m[h.fecha])m[h.fecha]={fecha:h.fecha,valor:Number(h.valor),fuente:h.fuente||'',por:h.por||''}});return Object.keys(m).sort().reverse().map(function(k){return m[k]})}
+function rateFor(date){var h=tasaHist();for(var i=0;i<h.length;i++)if(h[i].fecha<=date)return h[i];return h.length?h[h.length-1]:null}
+function tasaHoy(){return rateFor(today())}
+function eqBs(usd,date){var r=date?rateFor(date):tasaHoy();return r?bs((Number(usd)||0)*r.valor):''}
+function bsLine(usd,date){var t=eqBs(usd,date);return t?'<span class="bs">'+t+'</span>':''}
+function amtCell(o){return money(o.monto)+(o.moneda==='VES'&&o.montoBs?'<span class="bs">'+bs(o.montoBs)+' · tasa '+nf4(o.tasa)+'</span>':'')}
+function fetchTasa(){
+  return fetch(TASA_URL,{cache:'no-store'}).then(function(r){return r.ok?r.json():null}).then(function(j){
+    if(!j||!Array.isArray(j.hist)){tasaInfo={estado:'error'};schedule();return}
+    var list=j.hist.slice();if(j.publicada&&j.publicada.valor>0&&!list.some(function(h){return h.fecha===j.publicada.fecha}))list.unshift(j.publicada);
+    remoteHist=list.filter(function(h){return Number(h.valor)>0}).map(function(h){return {fecha:h.fecha,valor:Number(h.valor),fuente:h.fuente||'bcv.org.ve',por:'auto'}});
+    tasaInfo={estado:'ok',consultada:new Date().toISOString(),bcv:j.ultimaConsulta||''};
+    schedule();persistTasa();
+  }).catch(function(){tasaInfo={estado:'error'};schedule()});
+}
+var tasaSaving=false;
+function persistTasa(){
+  if(!S.owner||guest||!S.db||tasaSaving)return;
+  var merged=tasaHist().slice(0,180);if(!merged.length)return;
+  var stored=((S.config&&S.config.tasasHist)||[]).slice().sort(function(a,b){return a.fecha<b.fecha?1:-1});
+  var key=function(a){return a.map(function(h){return h.fecha+':'+Number(h.valor)}).join('|')};
+  if(key(merged)===key(stored))return;
+  var cur=rateFor(today());tasaSaving=true;
+  saveConfig({tasasHist:merged,tasa:cur||null}).then(function(){tasaSaving=false},function(){tasaSaving=false});
+}
+var tasaTimer=0;function startTasa(){fetchTasa();clearInterval(tasaTimer);tasaTimer=setInterval(fetchTasa,30*60*1000)}
+function renderRate(){
+  var r=tasaHoy(),h=tasaHist(),d=today(),next=h.find(function(x){return x.fecha>d});
+  var v=document.getElementById('rateVal'),sb=document.getElementById('rateSub'),nx=document.getElementById('rateNext');if(!v)return;
+  v.textContent=r?'Bs. '+nf4(r.valor):'Sin tasa';
+  sb.textContent=r?(r.fecha===d?'Vigente hoy':'Vigente desde el '+fmtDs(r.fecha))+' · por US$ 1':(tasaInfo.estado==='cargando'?'Consultando…':'No se pudo consultar');
+  nx.hidden=!next;if(next)nx.textContent='Desde el '+fmtDs(next.fecha)+': Bs. '+nf4(next.valor);
+}
+/* campos de moneda para pagos, gastos y envíos */
+function curFields(fecha){
+  var r=rateFor(fecha||today());
+  return '<fieldset><legend>Moneda en que se recibió o pagó</legend><div class="radios"><label><input type="radio" id="f-mon-usd" name="moneda" value="USD" checked> Dólares (US$)</label><label><input type="radio" id="f-mon-ves" name="moneda" value="VES"> Bolívares (Bs.)</label></div></fieldset>'
+   +'<div class="row2" id="vesRow" hidden>'+fld('Monto en bolívares','montoBs','','text','inputmode="decimal" placeholder="Ej.: 26.337,07"')+fld('Tasa BCV (Bs. por US$ 1)','tasa',r?String(r.valor).replace('.',','):'','text','inputmode="decimal"','Tasa oficial de la fecha. Cámbiala si se usó otra.')+'</div>'
+   +'<p class="note" id="vesInfo" hidden></p>';
+}
+function readCur(d,montoLabel){
+  if(d.moneda==='VES'){
+    var b=parseAmt(d.montoBs),t=parseAmt(d.tasa);
+    if(!(b>0))fail('Escribe el monto en bolívares.');
+    if(!(t>0))fail('Escribe la tasa BCV usada.');
+    return {monto:Math.round(b/t*100)/100,moneda:'VES',montoBs:Math.round(b*100)/100,tasa:t};
+  }
+  var m=toNum(d.monto);if(!(m>0))fail('Escribe '+(montoLabel||'un monto')+' mayor que cero.');
+  var r=rateFor(d.fecha||today());
+  return {monto:m,moneda:'USD',montoBs:'',tasa:r?r.valor:''};
+}
+function toggleVes(){
+  var row=document.getElementById('vesRow');if(!row)return;
+  var on=(document.querySelector('input[name="moneda"]:checked')||{}).value==='VES';
+  row.hidden=!on;document.getElementById('vesInfo').hidden=!on;
+  var m=document.getElementById('f-monto');if(m){m.readOnly=on;m.style.opacity=on?'.7':''}
+  if(on){recalcVes();var b=document.getElementById('f-montoBs');if(b)b.focus()}
+}
+function recalcVes(){
+  var info=document.getElementById('vesInfo');if(!info||info.hidden)return;
+  var b=parseAmt((document.getElementById('f-montoBs')||{}).value),t=parseAmt((document.getElementById('f-tasa')||{}).value),m=document.getElementById('f-monto');
+  if(b>0&&t>0){var usd=Math.round(b/t*100)/100;if(m)m.value=usd.toFixed(2);info.textContent='Equivale a '+money(usd)+' (Bs. '+nf4(b)+' ÷ '+nf4(t)+'). Se guarda en dólares con la tasa usada.'}
+  else info.textContent='Escribe el monto en bolívares y la tasa para calcular el equivalente en dólares.';
+  if(document.getElementById('payInfo'))updPayInfo();
+}
+
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
 function ini(n){return String(n||'?').trim().split(/\s+/).map(function(w){return w.charAt(0)}).join('').slice(0,2).toUpperCase()}
 function byNum(a,b){return (Number(a.piso)||0)-(Number(b.piso)||0)||String(a.num).localeCompare(String(b.num),'es',{numeric:true})}
@@ -540,7 +617,7 @@ function head(eyebrow,title,actions){return '<header class="head"><div><div clas
 function kpi(l,v,s,cls,act){var tag=act?'button type="button" '+act:'div';var end=act?'button':'div';return '<'+tag+' class="kpi'+(cls&&cls.indexOf('dark')>-1?' dark':'')+'"><span class="kpi-l">'+esc(l)+'</span><span class="kpi-v '+(cls||'')+'">'+v+'</span>'+(s?'<span class="kpi-s">'+s+'</span>':'')+'</'+end+'>'}
 function btn(label,act,extra,cls){return '<button type="button" class="btn '+(cls||'')+'" data-act="'+act+'" '+(extra||'')+'>'+label+'</button>'}
 function waNum(tel){var d=String(tel||'').replace(/\D/g,'');if(!d)return '';if(d.charAt(0)==='0')d='58'+d.slice(1);else if(d.length===10&&d.indexOf('58')!==0)d='58'+d;return d}
-function reminderText(t,ps,M){var r=roomById(t.roomId);return 'Hola '+String(t.nombre||'').split(' ')[0]+', te escribimos de '+(S.config.nombre||'la residencia')+'. Te recordamos que el pago de la habitación '+(r?r.num:'')+' correspondiente a '+mLabel(M).toLowerCase()+' está pendiente por '+money(ps.debe)+'. ¡Gracias!'}
+function reminderText(t,ps,M){var r=roomById(t.roomId);return 'Hola '+String(t.nombre||'').split(' ')[0]+', te escribimos de '+(S.config.nombre||'la residencia')+'. Te recordamos que el pago de la habitación '+(r?r.num:'')+' correspondiente a '+mLabel(M).toLowerCase()+' está pendiente por '+money(ps.debe)+(tasaHoy()?' ('+eqBs(ps.debe)+' a la tasa BCV de hoy, Bs. '+nf4(tasaHoy().valor)+' por dólar)':'')+'. ¡Gracias!'}
 
 /* ---------- vistas ---------- */
 var V={};
@@ -558,8 +635,8 @@ V.rooms=function(){
   var h=head('Ocupación al '+fmtD(today()),'Habitaciones',acts);
   h+='<section class="kpis" aria-label="Resumen">'
     +'<div class="kpi"><span class="kpi-l">Ocupación</span><span class="kpi-v">'+pct+'%</span><span class="kpi-s">'+c.ocupada+' de '+info.length+' habitaciones</span><div class="bar"><i style="width:'+pct+'%"></i></div></div>'
-    +kpi('Ingreso esperado · '+mShort(M),money(T.esperado),'<span class="c-ok">'+money(T.cobrado)+' cobrados</span>')
-    +kpi('Pendiente de cobro · '+mShort(M),money(T.pend),T.deud?T.deud+(T.deud===1?' inquilino con deuda':' inquilinos con deuda')+' →':'Sin deudas vencidas →',T.pend>0?'c-bad':'','data-act="view" data-v="payments"')
+    +kpi('Ingreso esperado · '+mShort(M),money(T.esperado),(tasaHoy()?eqBs(T.esperado)+' · ':'')+'<span class="c-ok">'+money(T.cobrado)+' cobrados</span>')
+    +kpi('Pendiente de cobro · '+mShort(M),money(T.pend),(T.pend>0&&tasaHoy()?eqBs(T.pend)+' · ':'')+(T.deud?T.deud+(T.deud===1?' inquilino con deuda':' inquilinos con deuda')+' →':'Sin deudas vencidas →'),T.pend>0?'c-bad':'','data-act="view" data-v="payments"')
     +kpi('Incidencias abiertas',String(inc),(c.mant?c.mant+(c.mant===1?' habitación fuera de servicio':' habitaciones fuera de servicio'):'Ver mantenimiento')+' →','','data-act="view" data-v="expenses"')
     +'</section>';
   var f=S.filter;
@@ -598,7 +675,7 @@ function tenantRows(){
     var ps=payStatus(t,M),on=S.sel===t.id,cur=isCurrent(t);
     var soon=!t.salida&&t.fin&&days(today(),t.fin)>=0&&days(today(),t.fin)<=45;
     var pago=!cur&&t.salida<firstDay(M)?pill('p-neu','Salió '+fmtDs(t.salida)):ps?pill(ps.cls,ps.label):(t.entrada>lastDay(M)?pill('p-info','Entra '+fmtDs(t.entrada)):'<span class="muted">—</span>');
-    var row='<tr class="'+(on?'sel':'')+'"><td><button type="button" class="who" data-act="selTenant" data-id="'+esc(t.id)+'" aria-expanded="'+on+'" aria-controls="ficha-'+esc(t.id)+'"><span class="av">'+esc(ini(t.nombre))+'</span>'+esc(t.nombre)+'<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></td><td class="num">'+esc(roomNum(t.roomId))+'</td><td class="muted">'+fmtD(t.entrada)+'</td><td'+(soon?' class="c-warn" style="font-weight:600"':' class="muted"')+'>'+fmtD(t.fin)+(t.salida?'<div class="small">Salida '+fmtD(t.salida)+'</div>':'')+'</td><td class="r num">'+money(t.renta)+'</td><td>'+pago+'</td></tr>';
+    var row='<tr class="'+(on?'sel':'')+'"><td><button type="button" class="who" data-act="selTenant" data-id="'+esc(t.id)+'" aria-expanded="'+on+'" aria-controls="ficha-'+esc(t.id)+'"><span class="av">'+esc(ini(t.nombre))+'</span>'+esc(t.nombre)+'<svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button></td><td class="num">'+esc(roomNum(t.roomId))+'</td><td class="muted">'+fmtD(t.entrada)+'</td><td'+(soon?' class="c-warn" style="font-weight:600"':' class="muted"')+'>'+fmtD(t.fin)+(t.salida?'<div class="small">Salida '+fmtD(t.salida)+'</div>':'')+'</td><td class="r num">'+money(t.renta)+bsLine(t.renta)+'</td><td>'+pago+'</td></tr>';
     if(on)row+='<tr class="expand sel"><td colspan="6"><div class="ficha" id="ficha-'+esc(t.id)+'" role="region" aria-label="Ficha de '+esc(t.nombre)+'">'+tenantFicha(t)+'</div></td></tr>';
     return row;
   }).join('');
@@ -614,7 +691,7 @@ function tenantFicha(t){
    +(wa?'<a class="btn small" style="margin-top:6px" href="https://wa.me/'+wa+'" target="_blank" rel="noopener">Abrir WhatsApp</a>':'')+'</div>';
   h+='<div><p class="lbl">Contrato</p>'
    +'<div class="kv"><span>Vigencia</span><span>'+fmtD(t.entrada)+' – '+fmtD(t.fin)+'</span></div>'
-   +'<div class="kv"><span>Renta mensual</span><span class="num">'+money(t.renta)+'</span></div>'
+   +'<div class="kv"><span>Renta mensual</span><span class="num">'+money(t.renta)+(tasaHoy()?' · '+eqBs(t.renta):'')+'</span></div>'
    +'<div class="kv"><span>Día de pago</span><span>Día '+esc(t.diaPago||1)+'</span></div>'
    +'<div class="kv"><span>Depósito</span><span class="num">'+(t.deposito?money(t.deposito):'—')+'</span></div>'
    +'<div class="kv"><span>'+esc(mLabel(S.month))+'</span><span>'+(ps?pill(ps.cls,ps.label):'—')+'</span></div>'
@@ -640,9 +717,9 @@ V.payments=function(){
   var h=head('Cobranza de '+mLabel(M).toLowerCase(),'Pagos y morosidad',acts);
   var pct=T.esperado?Math.min(100,Math.round(T.cobrado/T.esperado*100)):0;
   h+='<section class="panel" aria-label="Resumen de cobranza"><div class="kpis" style="gap:20px">'
-    +'<div><div class="kpi-l">Esperado</div><div class="kpi-v">'+money(T.esperado)+'</div></div>'
+    +'<div><div class="kpi-l">Esperado</div><div class="kpi-v">'+money(T.esperado)+'</div>'+bsLine(T.esperado)+'</div>'
     +'<div><div class="kpi-l">Cobrado</div><div class="kpi-v c-ok">'+money(T.cobrado)+'</div></div>'
-    +'<div><div class="kpi-l">Pendiente</div><div class="kpi-v '+(T.pend?'c-bad':'')+'">'+money(T.pend)+'</div></div>'
+    +'<div><div class="kpi-l">Pendiente</div><div class="kpi-v '+(T.pend?'c-bad':'')+'">'+money(T.pend)+'</div>'+(T.pend>0?bsLine(T.pend):'')+'</div>'
     +'<div><div class="kpi-l">Con deuda vencida</div><div class="kpi-v">'+T.deud+'</div></div></div>'
     +'<div><div class="bar" role="img" aria-label="'+pct+'% cobrado" style="height:12px;border-radius:6px;background:var(--bad-bg)"><i style="width:'+pct+'%;border-radius:6px"></i></div><div class="sec-row small muted" style="margin-top:6px"><span>'+pct+'% cobrado</span><span>'+(100-pct)+'% pendiente</span></div></div></section>';
   var rows=S.tenants.map(function(t){return {t:t,ps:payStatus(t,M)}}).filter(function(x){return x.ps});
@@ -650,7 +727,7 @@ V.payments=function(){
   if(fu.length){
     h+='<section class="sec" aria-label="Requieren seguimiento"><h2 class="sec-h">Requieren seguimiento</h2><div class="followups">'+fu.map(function(x){
       var t=x.t,ps=x.ps,wa=waNum(t.telefono),msg=reminderText(t,ps,M);
-      return '<article class="fu bad"><div class="sec-row"><strong>'+esc(t.nombre)+' · '+esc(roomNum(t.roomId))+'</strong>'+pill(ps.cls,ps.late?ps.late+(ps.late===1?' día':' días'):'Parcial')+'</div><div class="fu-amt c-bad">'+money(ps.debe)+(ps.paid?' <span class="muted" style="font-size:15px">de '+money(ps.renta)+'</span>':'')+'</div><div class="muted small">Venció el '+fmtD(ps.due)+'.'+(ps.paid?' Abonó '+money(ps.paid)+'.':'')+(t.telefono?' Tel. '+esc(t.telefono):'')+'</div><div class="actions">'+(wa?'<a class="btn small" href="https://wa.me/'+wa+'?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Recordar por WhatsApp</a>':'')+btn('Copiar mensaje','copyMsg','data-tid="'+esc(t.id)+'"','small')+(own?btn('Registrar abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small')+btn('Registrar pago','newPayment','data-tid="'+esc(t.id)+'"','small primary'):'')+'</div></article>';
+      return '<article class="fu bad"><div class="sec-row"><strong>'+esc(t.nombre)+' · '+esc(roomNum(t.roomId))+'</strong>'+pill(ps.cls,ps.late?ps.late+(ps.late===1?' día':' días'):'Parcial')+'</div><div class="fu-amt c-bad">'+money(ps.debe)+(ps.paid?' <span class="muted" style="font-size:15px">de '+money(ps.renta)+'</span>':'')+'</div>'+(tasaHoy()?'<div class="small muted">'+eqBs(ps.debe)+' a la tasa BCV de hoy</div>':'')+'<div class="muted small">Venció el '+fmtD(ps.due)+'.'+(ps.paid?' Abonó '+money(ps.paid)+'.':'')+(t.telefono?' Tel. '+esc(t.telefono):'')+'</div><div class="actions">'+(wa?'<a class="btn small" href="https://wa.me/'+wa+'?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Recordar por WhatsApp</a>':'')+btn('Copiar mensaje','copyMsg','data-tid="'+esc(t.id)+'"','small')+(own?btn('Registrar abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small')+btn('Registrar pago','newPayment','data-tid="'+esc(t.id)+'"','small primary'):'')+'</div></article>';
     }).join('')+'</div></section>';
   }
   var tab=S.ptab;
@@ -660,12 +737,12 @@ V.payments=function(){
   h+='<section class="sec" aria-label="Detalle del mes"><div class="sec-row"><h2 class="sec-h">'+(tab==='mov'?'Pagos registrados':'Estado por inquilino')+'</h2><div class="seg" role="group" aria-label="Ver">'+seg+'</div></div>';
   if(tab==='mov'){
     h+='<div class="tablebox"><table style="min-width:640px"><thead><tr><th>Fecha</th><th>Inquilino</th><th>Tipo</th><th>Método</th><th>Referencia</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
-    +(pays.length?pays.map(function(p){var t=tenantById(p.tenantId);return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(p.fecha)+'</td><td><strong>'+esc(t?t.nombre:'Inquilino eliminado')+'</strong> <span class="num muted">· '+esc(t?roomNum(t.roomId):'—')+'</span></td><td>'+(p.tipo==='abono'?pill('p-warn','Abono'):pill('p-ok','Pago'))+'</td><td>'+esc(p.metodo||'—')+'</td><td class="muted num">'+esc(p.referencia||'—')+'</td><td class="r num">'+money(p.monto)+'</td>'+(own?'<td class="r">'+btn('Eliminar','delPayment','data-id="'+esc(p.id)+'"','small ghost')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="7" class="muted" style="padding:20px 12px">Aún no hay pagos ni abonos registrados para este mes.</td></tr>')
+    +(pays.length?pays.map(function(p){var t=tenantById(p.tenantId);return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(p.fecha)+'</td><td><strong>'+esc(t?t.nombre:'Inquilino eliminado')+'</strong> <span class="num muted">· '+esc(t?roomNum(t.roomId):'—')+'</span></td><td>'+(p.tipo==='abono'?pill('p-warn','Abono'):pill('p-ok','Pago'))+'</td><td>'+esc(p.metodo||'—')+'</td><td class="muted num">'+esc(p.referencia||'—')+'</td><td class="r num">'+amtCell(p)+'</td>'+(own?'<td class="r">'+btn('Eliminar','delPayment','data-id="'+esc(p.id)+'"','small ghost')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="7" class="muted" style="padding:20px 12px">Aún no hay pagos ni abonos registrados para este mes.</td></tr>')
     +'</tbody></table></div></section>';
     return h;
   }
   h+='<div class="tablebox"><table style="min-width:600px"><thead><tr><th>Inquilino</th><th>Vence</th><th class="r">Renta</th><th class="r">Pagado</th><th>Estado</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
-    +(shown.length?shown.map(function(x){var t=x.t,ps=x.ps;return '<tr><td><strong>'+esc(t.nombre)+'</strong> <span class="num muted">· '+esc(roomNum(t.roomId))+'</span></td><td class="muted">'+fmtD(ps.due)+'</td><td class="r num">'+money(ps.renta)+'</td><td class="r num">'+money(ps.paid)+'</td><td>'+pill(ps.cls,ps.label)+'</td>'+(own?'<td class="r" style="white-space:nowrap">'+(ps.debe>0?btn('Abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small ghost')+' '+btn('Pago','newPayment','data-tid="'+esc(t.id)+'"','small'):'')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="6" class="muted" style="padding:24px 14px">'+(rows.length?'Nadie en este filtro.':'No hay inquilinos con contrato activo en '+esc(mLabel(M).toLowerCase())+'.')+'</td></tr>')
+    +(shown.length?shown.map(function(x){var t=x.t,ps=x.ps;return '<tr><td><strong>'+esc(t.nombre)+'</strong> <span class="num muted">· '+esc(roomNum(t.roomId))+'</span></td><td class="muted">'+fmtD(ps.due)+'</td><td class="r num">'+money(ps.renta)+bsLine(ps.renta)+'</td><td class="r num">'+money(ps.paid)+'</td><td>'+pill(ps.cls,ps.label)+'</td>'+(own?'<td class="r" style="white-space:nowrap">'+(ps.debe>0?btn('Abono','newPayment','data-tid="'+esc(t.id)+'" data-kind="abono"','small ghost')+' '+btn('Pago','newPayment','data-tid="'+esc(t.id)+'"','small'):'')+'</td>':'')+'</tr>'}).join(''):'<tr><td colspan="6" class="muted" style="padding:24px 14px">'+(rows.length?'Nadie en este filtro.':'No hay inquilinos con contrato activo en '+esc(mLabel(M).toLowerCase())+'.')+'</td></tr>')
     +'</tbody></table></div></section>';
   return h;
 };
@@ -681,7 +758,7 @@ V.expenses=function(){
   var ck=Object.keys(cats).sort(function(a,b){return cats[b]-cats[a]}),max=ck.length?cats[ck[0]]:1;
   var left='<section class="side panel" aria-label="Gastos por categoría" style="flex-basis:360px"><h2>Gastos por categoría</h2>'
     +(ck.length?'<ul class="list" style="display:flex;flex-direction:column;gap:12px">'+ck.map(function(k){return '<li style="flex-direction:column;gap:6px;padding:0;border:none"><div class="sec-row"><span style="font-weight:500">'+esc(k)+'</span><span class="num">'+money(cats[k])+'</span></div><div class="bar"><i style="width:'+Math.max(3,Math.round(cats[k]/max*100))+'%"></i></div></li>'}).join('')+'</ul><div class="divider"></div>':'<p class="muted" style="margin:0">Sin gastos registrados en '+esc(mLabel(M).toLowerCase())+'.</p>')
-    +(ex.length?'<p class="lbl">Detalle</p>'+ex.map(function(e){return '<div class="kv" style="align-items:center"><span><span style="color:var(--fg);font-weight:500">'+esc(e.categoria||'Otros')+'</span>'+(e.detalle?' · '+esc(e.detalle):'')+'<br><span class="small">'+fmtD(e.fecha)+(e.pagadoPor==='socio'?' · pagó '+esc(partnerName()):e.pagadoPor==='admin'?' · de tu bolsillo':'')+'</span></span><span style="display:flex;align-items:center;gap:6px"><span class="num" style="color:var(--fg)">'+money(e.monto)+'</span>'+(own?'<button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>':'')+'</span></div>'}).join(''):'')
+    +(ex.length?'<p class="lbl">Detalle</p>'+ex.map(function(e){return '<div class="kv" style="align-items:center"><span><span style="color:var(--fg);font-weight:500">'+esc(e.categoria||'Otros')+'</span>'+(e.detalle?' · '+esc(e.detalle):'')+'<br><span class="small">'+fmtD(e.fecha)+(e.pagadoPor==='socio'?' · pagó '+esc(partnerName()):e.pagadoPor==='admin'?' · de tu bolsillo':'')+'</span></span><span style="display:flex;align-items:center;gap:6px"><span class="num" style="color:var(--fg);text-align:right">'+amtCell(e)+'</span>'+(own?'<button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button>':'')+'</span></div>'}).join(''):'')
     +'</section>';
   var cut=addDays(today(),-60),open=openIncidents().length;
   var cols=[['abierta','Abiertas'],['curso','En curso'],['resuelta','Resueltas (60 días)']].map(function(c){
@@ -739,10 +816,10 @@ V.partner=function(){
   var trash=function(act,id,lbl){return own?'<td class="r"><button type="button" class="icon-btn" data-act="'+act+'" data-id="'+esc(id)+'" aria-label="'+lbl+'"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button></td>':''};
   var wide='<div class="wide sec" style="gap:22px">'
     +'<section class="sec" aria-label="Envíos del mes"><h2 class="sec-h">Dinero enviado en '+esc(mLabel(M).toLowerCase())+'</h2><div class="tablebox"><table style="min-width:480px"><thead><tr><th>Fecha</th><th>Método</th><th>Nota</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
-    +(envs.length?envs.map(function(e){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.metodo||'—')+'</td><td class="muted">'+esc(e.nota||'—')+'</td><td class="r num">'+money(e.monto)+'</td>'+trash('delEnvio',e.id,'Eliminar envío')+'</tr>'}).join(''):'<tr><td colspan="5" class="muted" style="padding:18px 12px">No hay envíos registrados este mes.</td></tr>')
+    +(envs.length?envs.map(function(e){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.metodo||'—')+'</td><td class="muted">'+esc(e.nota||'—')+'</td><td class="r num">'+amtCell(e)+'</td>'+trash('delEnvio',e.id,'Eliminar envío')+'</tr>'}).join(''):'<tr><td colspan="5" class="muted" style="padding:18px 12px">No hay envíos registrados este mes.</td></tr>')
     +'</tbody></table></div></section>'
     +'<section class="sec" aria-label="Gastos que pagó"><h2 class="sec-h">Gastos que pagó '+esc(pn)+'</h2><div class="tablebox"><table style="min-width:480px"><thead><tr><th>Fecha</th><th>Categoría</th><th>Detalle</th><th class="r">Monto</th>'+(own?'<th></th>':'')+'</tr></thead><tbody>'
-    +(gsus.length?gsus.map(function(e){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.categoria||'Otros')+'</td><td class="muted">'+esc(e.detalle||'—')+'</td><td class="r num">'+money(e.monto)+'</td>'+trash('delExpense',e.id,'Eliminar gasto')+'</tr>'}).join(''):'<tr><td colspan="5" class="muted" style="padding:18px 12px">No hay gastos pagados por '+esc(pn)+' este mes.</td></tr>')
+    +(gsus.length?gsus.map(function(e){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.categoria||'Otros')+'</td><td class="muted">'+esc(e.detalle||'—')+'</td><td class="r num">'+amtCell(e)+'</td>'+trash('delExpense',e.id,'Eliminar gasto')+'</tr>'}).join(''):'<tr><td colspan="5" class="muted" style="padding:18px 12px">No hay gastos pagados por '+esc(pn)+' este mes.</td></tr>')
     +'</tbody></table></div></section></div>';
   var st=saldoTxt(tot.saldo,pn);
   var side='<aside class="side panel" aria-label="Saldo acumulado"><h2>Acumulado desde el inicio</h2>'
@@ -768,9 +845,10 @@ function actNewEnvio(){
   var pn=partnerName(),def=S.month===curMonth()?today():lastDay(S.month),r=partnerMonth(S.month);
   openModal('Dinero enviado a '+pn,(r.saldo>0.004?'<p class="note" style="margin:0">Saldo pendiente de '+esc(mLabel(S.month).toLowerCase())+': '+money(r.saldo)+'.</p>':'')
     +'<div class="row2">'+fld('Monto (USD)','monto',r.saldo>0.004?(Math.round(r.saldo*100)/100):'','text','inputmode="decimal" required')+fld('Fecha','fecha',def,'date','required')+'</div>'
+    +curFields(def)
     +radios('Método','metodo',METODOS,'Zelle')+fld('Nota','nota','','text','placeholder="Ej.: parte de octubre"'),function(d){
-    var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');if(!d.fecha)fail('Indica la fecha.');
-    return col('envios').add({monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',nota:d.nota||''}).then(function(){return 'Envío de '+money(monto)+' registrado'});
+    if(!d.fecha)fail('Indica la fecha.');var cur=readCur(d),monto=cur.monto;
+    return col('envios').add({monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',nota:d.nota||'',moneda:cur.moneda,montoBs:cur.montoBs,tasa:cur.tasa}).then(function(){return 'Envío de '+(cur.moneda==='VES'?bs(cur.montoBs)+' ('+money(monto)+')':money(monto))+' registrado'});
   },{label:'Guardar envío'});
 };
 function actDelEnvio(b){var e=S.envios.find(function(x){return x.id===b.dataset.id});if(!e)return;openModal('Eliminar envío','<p style="margin:0">Se elimina el envío de '+money(e.monto)+' del '+fmtD(e.fecha)+'. El saldo se recalcula.</p>',function(){return col('envios').doc(e.id).delete().then(function(){return 'Envío eliminado'})},{label:'Eliminar',danger:true})}
@@ -797,7 +875,7 @@ V.pocket=function(){
     +(list.length?list.map(function(e){
       var st=e.reembolsadoEn?pill('p-ok','Recuperado '+fmtDs(e.reembolsadoEn)):pill('p-warn','Por recuperar');
       var a=own?'<td class="r" style="white-space:nowrap">'+btn(e.reembolsadoEn?'Deshacer':'Marcar recuperado','togglePocket','data-id="'+esc(e.id)+'"','small'+(e.reembolsadoEn?' ghost':''))+' <button type="button" class="icon-btn" data-act="delExpense" data-id="'+esc(e.id)+'" aria-label="Eliminar gasto"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/></svg></button></td>':'';
-      return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.categoria||'Otros')+'</td><td class="muted">'+esc(e.detalle||'—')+'</td><td class="r num">'+money(e.monto)+'</td><td>'+st+'</td>'+a+'</tr>';
+      return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(e.fecha)+'</td><td>'+esc(e.categoria||'Otros')+'</td><td class="muted">'+esc(e.detalle||'—')+'</td><td class="r num">'+amtCell(e)+'</td><td>'+st+'</td>'+a+'</tr>';
     }).join(''):'<tr><td colspan="6" class="muted" style="padding:18px 12px">'+(all.length?'Nada en este filtro.':'Todavía no hay gastos pagados de tu bolsillo. Al registrar un gasto, elige «De mi bolsillo» en «Pagado con».')+'</td></tr>')
     +'</tbody></table></div></section>';
   return h;
@@ -817,7 +895,7 @@ function render(){
   document.getElementById('resEdit').hidden=!S.owner;
   document.getElementById('roBadge').hidden=S.owner||!S.db;
   document.getElementById('monthLbl').textContent=mLabel(S.month);
-  document.getElementById('todayLbl').textContent=fmtD(today());
+  document.getElementById('todayLbl').textContent=fmtD(today());renderRate();
   document.querySelectorAll('.nav-link').forEach(function(b){if(b.dataset.v===S.view)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current')});
   var el=document.getElementById('view'),tb=document.getElementById('topbar'),mn=document.getElementById('monthnav');
   if(mn.parentNode!==tb)tb.insertBefore(mn,tb.firstChild);
@@ -877,15 +955,15 @@ var guest=false,unsubs=[];
 var FIELDS={
   rooms:{num:'num',piso:'piso',tipo:'tipo',precio:'precio',mant:'mant',nota:'nota'},
   tenants:{nombre:'nombre',roomId:'room_id',renta:'renta',telefono:'telefono',cedula:'cedula',emergencia:'emergencia',entrada:'entrada',fin:'fin',salida:'salida',diaPago:'dia_pago',deposito:'deposito',notas:'notas'},
-  payments:{tenantId:'tenant_id',mes:'mes',monto:'monto',fecha:'fecha',metodo:'metodo',referencia:'referencia',tipo:'tipo'},
-  expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle',pagadoPor:'pagado_por',reembolsadoEn:'reembolsado_en'},
-  envios:{monto:'monto',fecha:'fecha',metodo:'metodo',nota:'nota'},
+  payments:{tenantId:'tenant_id',mes:'mes',monto:'monto',fecha:'fecha',metodo:'metodo',referencia:'referencia',tipo:'tipo',moneda:'moneda',montoBs:'monto_bs',tasa:'tasa'},
+  expenses:{categoria:'categoria',monto:'monto',fecha:'fecha',detalle:'detalle',pagadoPor:'pagado_por',reembolsadoEn:'reembolsado_en',moneda:'moneda',montoBs:'monto_bs',tasa:'tasa'},
+  envios:{monto:'monto',fecha:'fecha',metodo:'metodo',nota:'nota',moneda:'moneda',montoBs:'monto_bs',tasa:'tasa'},
   incidents:{lugar:'lugar',titulo:'titulo',detalle:'detalle',prioridad:'prioridad',fecha:'fecha',estado:'estado',resueltaEn:'resuelta_en'}
 };
-var NULLABLE={fin:1,salida:1,resuelta_en:1,reembolsado_en:1,room_id:1,tenant_id:1,piso:1};
+var NULLABLE={monto_bs:1,tasa:1,fin:1,salida:1,resuelta_en:1,reembolsado_en:1,room_id:1,tenant_id:1,piso:1};
 var HAS_UPD={rooms:1,tenants:1,incidents:1};
 function toDb(c,o){var m=FIELDS[c],r={};Object.keys(m).forEach(function(k){if(k in o){var v=o[k];if(v===''&&NULLABLE[m[k]])v=null;r[m[k]]=v}});if(HAS_UPD[c])r.updated_at=new Date().toISOString();return r}
-function fromDb(c,row){var m=FIELDS[c],o={id:row.id};Object.keys(m).forEach(function(k){var v=row[m[k]];o[k]=v==null?'':v});['precio','renta','deposito','monto'].forEach(function(k){if(k in o&&o[k]!=='')o[k]=Number(o[k])});o.createdAt=row.created_at;return o}
+function fromDb(c,row){var m=FIELDS[c],o={id:row.id};Object.keys(m).forEach(function(k){var v=row[m[k]];o[k]=v==null?'':v});['precio','renta','deposito','monto','montoBs','tasa'].forEach(function(k){if(k in o&&o[k]!=='')o[k]=Number(o[k])});o.createdAt=row.created_at;return o}
 function isNetErr(e){var m=String(e&&(e.message||'')||'');return !!e&&(e.code==='unavailable'||e.code==='auth/network-request-failed'||e instanceof TypeError||/failed to fetch|network/i.test(m))}
 function col(c){
   return {
@@ -911,7 +989,7 @@ function listen(){
       toast('No se pudieron cargar algunos datos. Revisa tu conexión.');schedule();
     }));
   });
-  unsubs.push(cfgDoc().onSnapshot(function(s){S.config=s.exists?(s.data()||{}):{};schedule()},function(){}));
+  unsubs.push(cfgDoc().onSnapshot(function(s){S.config=s.exists?(s.data()||{}):{};schedule();persistTasa()},function(){}));
 }
 function reload(){}
 function stamp(o){o.updatedAt=new Date().toISOString();return o}
@@ -939,6 +1017,22 @@ A.closeModal=closeModal;
 A.selTenant=function(b){var id=b.dataset.id;S.sel=S.sel===id?null:id;var tb=document.getElementById('trows');if(tb){tb.innerHTML=tenantRows();var nb=tb.querySelector('[data-act="selTenant"][data-id="'+id.replace(/"/g,'')+'"]');if(nb)nb.focus()}else render()};
 A.settings=function(){openModal('Nombre de la residencia',fld('Nombre','nombre',S.config.nombre||'','text','required placeholder="Residencia Los Samanes"'),function(d){if(!d.nombre)fail('Escribe un nombre.');return saveConfig({nombre:d.nombre}).then(function(){return 'Nombre actualizado'})})};
 A.signOut=function(){auth.signOut()};
+A.tasa=function(){
+  var r=tasaHoy(),h=tasaHist().slice(0,12),own=S.owner&&!guest;
+  var list=h.length?'<div class="tablebox"><table><thead><tr><th>Fecha valor</th><th class="r">Bs. por US$</th><th>Origen</th></tr></thead><tbody>'+h.map(function(x){return '<tr><td>'+fmtD(x.fecha)+'</td><td class="r num">'+nf4(x.valor)+'</td><td class="muted small">'+(x.por==='manual'?'Registrada a mano':esc(x.fuente||'BCV'))+'</td></tr>'}).join('')+'</tbody></table></div>':'<p class="muted" style="margin:0">Todavía no hay tasas registradas.</p>';
+  var inner='<p style="margin:0">'+(r?'Tasa vigente: <strong>Bs. '+nf4(r.valor)+'</strong> por US$ 1 (fecha valor '+fmtD(r.fecha)+').':'No hay tasa disponible por ahora.')+'</p>'
+    +'<p class="muted small" style="margin:0">Se actualiza sola varias veces al día desde bcv.org.ve, la misma que usa la plataforma de la escuela de danza. Los montos se manejan en dólares y se muestran también en bolívares a esta tasa. Cuando registras un pago o gasto en bolívares, se guarda con la tasa del día.</p>'
+    +'<p class="lbl">Historial</p>'+list
+    +(own?'<div class="divider"></div><p class="lbl">Registrar una tasa a mano</p><p class="muted small" style="margin:0">Solo si la automática falla o necesitas corregir una fecha.</p><div class="row2">'+fld('Bs. por US$ 1','valor','','text','inputmode="decimal" placeholder="Ej.: 877,9023"')+fld('Fecha valor','fecha',today(),'date')+'</div>':'');
+  openModal('Tasa oficial BCV',inner,own?function(d){
+    var v=parseAmt(d.valor);if(!(v>0))fail('Escribe la tasa.');if(!d.fecha)fail('Indica la fecha valor.');
+    var stored=((S.config&&S.config.tasasHist)||[]).filter(function(x){return x.fecha!==d.fecha});
+    stored.push({fecha:d.fecha,valor:v,fuente:'manual',por:'manual'});stored.sort(function(a,b){return a.fecha<b.fecha?1:-1});
+    remoteHist=remoteHist.filter(function(x){return x.fecha!==d.fecha});
+    return saveConfig({tasasHist:stored.slice(0,180)}).then(function(){return 'Tasa del '+fmtD(d.fecha)+' registrada'});
+  }:null,{label:'Guardar tasa',extra:btn('Actualizar ahora','tasaRefresh','style="margin-right:auto"')});
+};
+A.tasaRefresh=function(b){b.disabled=true;fetchTasa().then(function(){b.disabled=false;toast(tasaInfo.estado==='ok'?'Tasa actualizada':'No se pudo consultar la tasa. Intenta más tarde.');if(!document.getElementById('modal').hidden)A.tasa()})};
 A.access=function(){
   if(!S.owner)return;
   Promise.all([fdb.collection('roles').get(),ensureGuestToken()]).then(function(r){
@@ -1073,27 +1167,29 @@ A.newPayment=function(b){
   var inner=(payKind==='abono'?'<p class="muted small" style="margin:0">Un abono es un pago parcial. Puedes registrar varios en el mismo mes; la app los suma y descuenta de la renta.</p>':'')
    +sel('Inquilino','tenantId',list.map(function(t){return [t.id,t.nombre+' · '+roomNum(t.roomId)]}),tid)
    +'<div class="row2">'+fld('Mes al que se aplica','mes',M,'month','required')+fld(payKind==='abono'?'Monto del abono (USD)':'Monto (USD)','monto',defMonto,'text','inputmode="decimal" required'+(payKind==='abono'?' placeholder="Ej.: 30"':''))+'</div>'
-   +'<p class="note" id="payInfo" aria-live="polite"></p>'
    +'<div class="row2">'+fld('Fecha','fecha',today(),'date','required')+fld('Referencia','referencia','','text','placeholder="N.º de confirmación"')+'</div>'
+   +curFields(today())
+   +'<p class="note" id="payInfo" aria-live="polite"></p>'
    +radios('Método','metodo',METODOS,'Zelle');
   openModal(title,inner,function(d){
-    var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');
     if(!/^\d{4}-\d{2}$/.test(d.mes||''))fail('Elige el mes al que se aplica.');
     if(!d.fecha)fail('Indica la fecha.');
+    var cur=readCur(d),monto=cur.monto;
     var t=tenantById(d.tenantId),ps2=t?payStatus(t,d.mes):null,debe=ps2?ps2.debe:Infinity;
-    var tipo=payKind==='abono'||monto<debe?'abono':'pago';
-    var o=stamp({tenantId:d.tenantId,mes:d.mes,monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',referencia:d.referencia||'',tipo:tipo});
+    var tipo=payKind==='abono'||monto<debe-0.004?'abono':'pago';
+    var o=stamp({tenantId:d.tenantId,mes:d.mes,monto:monto,fecha:d.fecha,metodo:d.metodo||'Otro',referencia:d.referencia||'',tipo:tipo,moneda:cur.moneda,montoBs:cur.montoBs,tasa:cur.tasa});
     var rest=isFinite(debe)?Math.max(0,debe-monto):null;
-    return col('payments').add(o).then(function(){return (tipo==='abono'?'Abono':'Pago')+' de '+money(monto)+(t?' de '+t.nombre:'')+' registrado'+(rest!=null?(rest>0?' · queda debiendo '+money(rest):' · mes pagado'):'')});
+    return col('payments').add(o).then(function(){return (tipo==='abono'?'Abono':'Pago')+' de '+(cur.moneda==='VES'?bs(cur.montoBs)+' ('+money(monto)+')':money(monto))+(t?' de '+t.nombre:'')+' registrado'+(rest!=null?(rest>0?' · queda debiendo '+money(rest):' · mes pagado'):'')});
   },{label:payKind==='abono'?'Guardar abono':'Guardar pago'});
   updPayInfo();
 };
 A.delPayment=function(b){var p=S.payments.find(function(x){return x.id===b.dataset.id});if(!p)return;var t=tenantById(p.tenantId);openModal('Eliminar pago','<p style="margin:0">Se elimina el pago de '+money(p.monto)+(t?' de '+esc(t.nombre):'')+' del '+fmtD(p.fecha)+'. La deuda del mes se recalcula.</p>',function(){return col('payments').doc(p.id).delete().then(function(){return 'Pago eliminado'})},{label:'Eliminar',danger:true})};
 A.newExpense=function(b){
   var def=S.month===curMonth()?today():lastDay(S.month),by=b&&b.dataset&&b.dataset.by||'residencia',porSocio=by==='socio',pn=partnerName();
-  openModal(porSocio?'Gasto pagado por '+pn:by==='admin'?'Gasto de mi bolsillo':'Nuevo gasto',(porSocio?'<p class="muted small" style="margin:0">Se registra como gasto de la residencia y se suma a favor de '+esc(pn)+' en el reparto.</p>':by==='admin'?'<p class="muted small" style="margin:0">Cuenta como gasto de la residencia y queda anotado como dinero que la residencia te debe devolver.</p>':'')+'<div class="row2"><label class="f" for="f-categoria">Categoría<input id="f-categoria" name="categoria" list="cats" required placeholder="Electricidad"></label>'+fld('Monto (USD)','monto','','text','inputmode="decimal" required')+'</div>'+datalist('cats',CATS)+'<div class="row2">'+fld('Fecha','fecha',def,'date','required')+fld('Detalle','detalle','','text','placeholder="Factura de octubre"')+'</div>'+sel('Pagado con','pagadoPor',[['residencia','Dinero de la residencia'],['admin','De mi bolsillo'],['socio','Lo pagó '+pn]],by),function(d){
-    if(!d.categoria)fail('Elige o escribe una categoría.');var monto=toNum(d.monto);if(!(monto>0))fail('Escribe un monto mayor que cero.');if(!d.fecha)fail('Indica la fecha.');
-    var o=stamp({categoria:d.categoria,monto:monto,fecha:d.fecha,detalle:d.detalle||'',pagadoPor:['socio','admin'].indexOf(d.pagadoPor)>-1?d.pagadoPor:'residencia'});o.createdAt=o.updatedAt;
+  openModal(porSocio?'Gasto pagado por '+pn:by==='admin'?'Gasto de mi bolsillo':'Nuevo gasto',(porSocio?'<p class="muted small" style="margin:0">Se registra como gasto de la residencia y se suma a favor de '+esc(pn)+' en el reparto.</p>':by==='admin'?'<p class="muted small" style="margin:0">Cuenta como gasto de la residencia y queda anotado como dinero que la residencia te debe devolver.</p>':'')+'<div class="row2"><label class="f" for="f-categoria">Categoría<input id="f-categoria" name="categoria" list="cats" required placeholder="Electricidad"></label>'+fld('Monto (USD)','monto','','text','inputmode="decimal" required')+'</div>'+datalist('cats',CATS)+'<div class="row2">'+fld('Fecha','fecha',def,'date','required')+fld('Detalle','detalle','','text','placeholder="Factura de octubre"')+'</div>'+curFields(def)+sel('Pagado con','pagadoPor',[['residencia','Dinero de la residencia'],['admin','De mi bolsillo'],['socio','Lo pagó '+pn]],by),function(d){
+    if(!d.categoria)fail('Elige o escribe una categoría.');if(!d.fecha)fail('Indica la fecha.');
+    var cur=readCur(d),monto=cur.monto;
+    var o=stamp({categoria:d.categoria,monto:monto,fecha:d.fecha,detalle:d.detalle||'',pagadoPor:['socio','admin'].indexOf(d.pagadoPor)>-1?d.pagadoPor:'residencia',moneda:cur.moneda,montoBs:cur.montoBs,tasa:cur.tasa});o.createdAt=o.updatedAt;
     return col('expenses').add(o).then(function(){return 'Gasto registrado'});
   },{label:'Guardar gasto'});
 };
@@ -1125,13 +1221,13 @@ function save(name,data,type){
 A.exportPayments=function(){
   var M=S.month,rows=[['Habitación','Inquilino','Renta','Pagado','Debe','Estado','Vence']];
   S.tenants.forEach(function(t){var ps=payStatus(t,M);if(ps)rows.push([roomNum(t.roomId),t.nombre,ps.renta,ps.paid,ps.debe,ps.label,ps.due])});
-  rows.push([]);rows.push(['Pagos y abonos registrados']);rows.push(['Fecha','Inquilino','Habitación','Tipo','Método','Referencia','Monto']);
-  S.payments.filter(function(p){return p.mes===M}).forEach(function(p){var t=tenantById(p.tenantId);rows.push([p.fecha,t?t.nombre:'Inquilino eliminado',t?roomNum(t.roomId):'',p.tipo==='abono'?'Abono':'Pago',p.metodo,p.referencia,p.monto])});
+  rows.push([]);rows.push(['Pagos y abonos registrados']);rows.push(['Fecha','Inquilino','Habitación','Tipo','Método','Referencia','Monto US$','Moneda','Monto Bs','Tasa BCV']);
+  S.payments.filter(function(p){return p.mes===M}).forEach(function(p){var t=tenantById(p.tenantId);rows.push([p.fecha,t?t.nombre:'Inquilino eliminado',t?roomNum(t.roomId):'',p.tipo==='abono'?'Abono':'Pago',p.metodo,p.referencia,p.monto,p.moneda==='VES'?'Bs':'US$',p.moneda==='VES'?p.montoBs:'',p.tasa||''])});
   save('pagos-'+M+'.csv',csv(rows));
 };
 A.exportExpenses=function(){
-  var M=S.month,rows=[['Fecha','Categoría','Detalle','Monto']];
-  S.expenses.filter(function(e){return (e.fecha||'').slice(0,7)===M}).sort(function(a,b){return a.fecha<b.fecha?-1:1}).forEach(function(e){rows.push([e.fecha,e.categoria,e.detalle,e.monto])});
+  var M=S.month,rows=[['Fecha','Categoría','Detalle','Monto US$','Moneda','Monto Bs','Tasa BCV']];
+  S.expenses.filter(function(e){return (e.fecha||'').slice(0,7)===M}).sort(function(a,b){return a.fecha<b.fecha?-1:1}).forEach(function(e){rows.push([e.fecha,e.categoria,e.detalle,e.monto,e.moneda==='VES'?'Bs':'US$',e.moneda==='VES'?e.montoBs:'',e.tasa||''])});
   var T=monthTotals(M);rows.push([]);rows.push(['','','Ingresos cobrados',T.cobrado]);rows.push(['','','Gastos',T.gastos]);rows.push(['','','Balance',T.cobrado-T.gastos]);
   save('gastos-'+M+'.csv',csv(rows));
 };
@@ -1139,6 +1235,8 @@ A.exportExpenses=function(){
 document.addEventListener('click',function(e){var b=e.target.closest('[data-act]');if(!b||b.disabled)return;var f=A[b.dataset.act];if(f){e.preventDefault();f(b)}});
 document.addEventListener('input',function(e){
   if(e.target.id==='f-monto'&&document.getElementById('payInfo'))updPayInfo();
+  if(e.target.id==='f-tasa')e.target.dataset.touched='1';
+  if(e.target.id==='f-montoBs'||e.target.id==='f-tasa')recalcVes();
   if(e.target.id==='q'){S.q=e.target.value;var tb=document.getElementById('trows');if(tb)tb.innerHTML=tenantRows()}
 });
 document.addEventListener('change',function(e){
@@ -1146,6 +1244,8 @@ document.addEventListener('change',function(e){
   if(e.target.id==='f-roomId'){var r=roomById(e.target.value),inp=document.getElementById('f-renta');if(r&&inp)inp.value=r.precio}
   if(e.target.id==='f-tenantId'){var t=tenantById(e.target.value),mi=document.getElementById('f-mes'),mo=document.getElementById('f-monto');if(t&&mo&&payKind!=='abono'){var ps=payStatus(t,mi&&mi.value||S.month);mo.value=ps?(ps.debe||ps.renta):t.renta}updPayInfo()}
   if(e.target.id==='f-mes')updPayInfo();
+  if(e.target.name==='moneda')toggleVes();
+  if(e.target.id==='f-fecha'){var tf=document.getElementById('f-tasa');if(tf&&!tf.dataset.touched){var rr=rateFor(e.target.value||today());if(rr){tf.value=String(rr.valor).replace('.',',');recalcVes()}}}
 });
 var toastT=0;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
@@ -1224,7 +1324,7 @@ function enterApp(user){
       S.owner=(s.data()||{}).role==='admin';S.db=fdb;
       $('auth').hidden=true;$('app').hidden=false;
       $('userEmail').textContent=S.email;$('accessBtn').hidden=!S.owner;$('signOutBtn').hidden=false;
-      render();listen();
+      render();listen();startTasa();
     });
   }).catch(function(err){
     currentUser=null;
@@ -1247,7 +1347,7 @@ function enterGuest(tok){
       S.owner=false;S.email='';S.db=fdb;
       $('auth').hidden=true;$('app').hidden=false;
       $('userEmail').textContent='Invitado · solo lectura';$('accessBtn').hidden=true;$('signOutBtn').hidden=true;
-      render();listen();
+      render();listen();startTasa();
     }).catch(guestInvalid);
   };
   var u=auth.currentUser;
