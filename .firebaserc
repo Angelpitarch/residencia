@@ -1,0 +1,8 @@
+{
+  "projects": { "default": "residencia-ae9f0" },
+  "targets": {
+    "residencia-ae9f0": {
+      "hosting": { "lacomadre": ["lacomadre"] }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+# Publica la app en https://lacomadre.web.app cada vez que se actualiza la rama main.
+# Necesita el secreto FIREBASE_SERVICE_ACCOUNT (clave JSON de una cuenta de servicio
+# con el rol "Administrador de Firebase Hosting"). Sin el secreto, no publica nada.
+name: Publicar en Firebase Hosting
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Comprobar credencial
+        id: cred
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$SA" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "::warning::Falta el secreto FIREBASE_SERVICE_ACCOUNT; no se publica."; fi
+      - name: Publicar en lacomadre.web.app
+        if: steps.cred.outputs.ok == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: residencia-ae9f0
+          target: lacomadre
+          channelId: live
