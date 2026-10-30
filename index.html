@@ -378,6 +378,28 @@ tr.expand td{padding:0 12px 16px}
 .rate-box .rate-next{color:var(--nav-fg)}
 .bs{display:block;font-size:12px;color:var(--muted);font-family:var(--f-mono);font-variant-numeric:tabular-nums;font-weight:400}
 @media (max-width:760px){.rate-box{margin-top:0;flex-direction:row;flex-wrap:wrap;align-items:baseline;column-gap:8px;padding:8px 12px}}
+/* Bandeja «Por verificar» */
+.nav-badge{margin-left:auto;min-width:20px;height:20px;padding:0 6px;border-radius:10px;background:#E8743B;color:#FFFFFF;font-size:12px;font-weight:700;display:inline-grid;place-items:center;line-height:1}
+.rep-amt{font-family:var(--f-mono);font-size:20px;font-variant-numeric:tabular-nums}
+.proof{border:1px solid var(--line-strong);border-radius:12px;background:var(--surface-2);min-height:110px;display:grid;place-items:center;overflow:hidden;padding:8px}
+.proof img{display:block;max-width:100%;max-height:55vh;object-fit:contain;border-radius:6px}
+.alert-info{background:var(--info-bg);color:var(--info-fg);border:1px solid var(--info-line);border-radius:12px;padding:12px 14px}
+.alert-info .btn{flex:none}
+/* Portal del inquilino: una sola columna, pensada primero para el teléfono */
+.portal{min-height:100vh;background:var(--bg)}
+.p-top{background:var(--nav-bg);color:var(--nav-fg)}
+.p-top-in{max-width:760px;margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.p-top .brand{padding:0}
+.p-rate{font-size:12.5px;color:var(--nav-muted)} .p-rate strong{color:var(--nav-strong);font-weight:500;margin-left:4px}
+.p-main{max-width:760px;margin:0 auto;padding:22px 16px 48px;display:flex;flex-direction:column;gap:22px}
+.p-hello h1{margin:0;font-family:var(--f-display);font-size:24px;letter-spacing:-.3px}
+.p-amt{font-family:var(--f-display);font-size:36px;font-weight:700;line-height:1.05;font-variant-numeric:tabular-nums}
+.p-hero .actions .btn{flex:1 1 160px}
+.copyrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.copyrow:last-child{border-bottom:none}
+.copyrow>div{min-width:0} .copyrow b{display:block;font-weight:500;overflow-wrap:anywhere}
+.portal th,.portal td{padding-left:10px;padding-right:10px}
+.p-foot{color:var(--muted);font-size:12.5px;text-align:center;margin:0}
 </style>
 </head>
 <body>
@@ -431,6 +453,8 @@ tr.expand td{padding:0 12px 16px}
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"/><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"/></svg>Reparto</button>
       <button type="button" class="nav-link" data-act="view" data-v="pocket">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V5a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h14a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V6"/><path d="M16 13h2"/></svg>De mi bolsillo</button>
+      <button type="button" class="nav-link" data-act="view" data-v="verify" id="navVerify" hidden>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 13l3-8h10l3 8v6a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="M4 13h4.5l1 2h5l1-2H20"/></svg>Por verificar<span class="nav-badge" id="verifyCount" hidden></span></button>
     </div>
     <button type="button" class="rate-box" id="rateBox" data-act="tasa" aria-label="Tasa BCV: ver detalle"><span>Tasa BCV</span><strong id="rateVal">—</strong><span id="rateSub">Consultando…</span><span class="rate-next" id="rateNext" hidden></span></button><span id="todayLbl" hidden></span>
     <div class="nav-user">
@@ -451,6 +475,19 @@ tr.expand td{padding:0 12px 16px}
     </div>
     <div id="view"><p class="state">Cargando datos de la residencia…</p></div>
   </main>
+</div>
+
+<div class="portal" id="portal" hidden>
+  <header class="p-top">
+    <div class="p-top-in">
+      <div class="brand">
+        <div class="brand-mark"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V8l7-5 7 5v13"/><path d="M10 21v-5h4v5"/></svg></div>
+        <div><div class="brand-name" id="pName">Residencia</div><div class="brand-sub">Portal del inquilino</div></div>
+      </div>
+      <div class="p-rate" id="pRate"></div>
+    </div>
+  </header>
+  <main class="p-main" id="pView"><p class="state">Cargando tu cuenta…</p></main>
 </div>
 <div class="modal" id="modal" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
@@ -560,8 +597,8 @@ function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
 
 var S={rooms:[],tenants:[],payments:[],expenses:[],incidents:[],envios:[],config:{},loaded:{},
   view:lsGet('res.view')||'rooms',month:curMonth(),filter:'todas',sel:null,q:'',past:false,ptab:'todos',
-  owner:false,db:null,dl:null,failed:false};
-if(['rooms','tenants','payments','expenses','partner','pocket'].indexOf(S.view)<0)S.view='rooms';
+  owner:false,db:null,dl:null,failed:false,reportes:[],portalTokens:{},portalLoaded:false,repLoaded:false};
+if(['rooms','tenants','payments','expenses','partner','pocket','verify'].indexOf(S.view)<0)S.view='rooms';
 S.ktab='pend';
 
 /* ---------- dominio ---------- */
@@ -688,7 +725,7 @@ function tenantFicha(t){
    +'<div class="kv"><span>Teléfono</span><span>'+(t.telefono?esc(t.telefono):'—')+'</span></div>'
    +'<div class="kv"><span>Cédula</span><span>'+(t.cedula?esc(t.cedula):'—')+'</span></div>'
    +'<div class="kv"><span>Emergencia</span><span>'+(t.emergencia?esc(t.emergencia):'—')+'</span></div>'
-   +(wa?'<a class="btn small" style="margin-top:6px" href="https://wa.me/'+wa+'" target="_blank" rel="noopener">Abrir WhatsApp</a>':'')+'</div>';
+   +'<div class="actions" style="margin-top:6px">'+(wa?'<a class="btn small" href="https://wa.me/'+wa+'" target="_blank" rel="noopener">Abrir WhatsApp</a>':'')+(own&&isCurrent(t)?btn('Portal del inquilino','portalLink','data-tid="'+esc(t.id)+'"','small'):'')+'</div></div>';
   h+='<div><p class="lbl">Contrato</p>'
    +'<div class="kv"><span>Vigencia</span><span>'+fmtD(t.entrada)+' – '+fmtD(t.fin)+'</span></div>'
    +'<div class="kv"><span>Renta mensual</span><span class="num">'+money(t.renta)+(tasaHoy()?' · '+eqBs(t.renta):'')+'</span></div>'
@@ -715,6 +752,8 @@ V.payments=function(){
   var M=S.month,T=monthTotals(M),own=S.owner;
   var acts=btn('Exportar CSV','exportPayments')+(own?btn('Registrar abono','newPayment','data-kind="abono"')+btn(plusIcon()+'Registrar pago','newPayment','','primary'):'');
   var h=head('Cobranza de '+mLabel(M).toLowerCase(),'Pagos y morosidad',acts);
+  var np=own?pendingReps().length:0;
+  if(np)h+='<div class="alert-info sec-row"><span><strong>'+np+(np===1?' pago reportado':' pagos reportados')+'</strong> por inquilinos '+(np===1?'espera':'esperan')+' tu confirmación.</span>'+btn('Ver y confirmar','view','data-v="verify"','small primary')+'</div>';
   var pct=T.esperado?Math.min(100,Math.round(T.cobrado/T.esperado*100)):0;
   h+='<section class="panel" aria-label="Resumen de cobranza"><div class="kpis" style="gap:20px">'
     +'<div><div class="kpi-l">Esperado</div><div class="kpi-v">'+money(T.esperado)+'</div>'+bsLine(T.esperado)+'</div>'
@@ -889,8 +928,13 @@ function actKtab(b){S.ktab=b.dataset.t;render()}
 
 /* ---------- render ---------- */
 var raf=0;
-function schedule(){if(raf)return;raf=requestAnimationFrame(function(){raf=0;render()})}
+function schedule(){if(S.owner&&!guest&&!PORTAL)syncPortals();if(raf)return;raf=requestAnimationFrame(function(){raf=0;render()})}
 function render(){
+  if(PORTAL){renderPortal();return}
+  if(S.view==='verify'&&!S.owner)S.view='rooms';
+  var npend=S.owner?pendingReps().length:0,vc=document.getElementById('verifyCount');
+  document.getElementById('navVerify').hidden=!S.owner;vc.hidden=!npend;vc.textContent=npend;
+  document.title=(npend?'('+npend+') ':'')+'Panel de la Residencia';
   document.getElementById('resName').textContent=S.config.nombre||'Mi residencia';
   document.getElementById('resEdit').hidden=!S.owner;
   document.getElementById('roBadge').hidden=S.owner||!S.db;
@@ -990,6 +1034,7 @@ function listen(){
     }));
   });
   unsubs.push(cfgDoc().onSnapshot(function(s){S.config=s.exists?(s.data()||{}):{};schedule();persistTasa()},function(){}));
+  if(S.owner&&!guest)try{listenPortal()}catch(e){console.error('portal',e)}
 }
 function reload(){}
 function stamp(o){o.updatedAt=new Date().toISOString();return o}
@@ -1237,6 +1282,7 @@ document.addEventListener('input',function(e){
   if(e.target.id==='f-monto'&&document.getElementById('payInfo'))updPayInfo();
   if(e.target.id==='f-tasa')e.target.dataset.touched='1';
   if(e.target.id==='f-montoBs'||e.target.id==='f-tasa')recalcVes();
+  if(e.target.id==='f-pbs'||e.target.id==='f-pusd'){e.target.dataset.touched='1';pFormSync(false)}
   if(e.target.id==='q'){S.q=e.target.value;var tb=document.getElementById('trows');if(tb)tb.innerHTML=tenantRows()}
 });
 document.addEventListener('change',function(e){
@@ -1245,10 +1291,333 @@ document.addEventListener('change',function(e){
   if(e.target.id==='f-tenantId'){var t=tenantById(e.target.value),mi=document.getElementById('f-mes'),mo=document.getElementById('f-monto');if(t&&mo&&payKind!=='abono'){var ps=payStatus(t,mi&&mi.value||S.month);mo.value=ps?(ps.debe||ps.renta):t.renta}updPayInfo()}
   if(e.target.id==='f-mes')updPayInfo();
   if(e.target.name==='moneda')toggleVes();
+  if(e.target.name==='pmetodo'||e.target.id==='f-pmes')pFormSync(true);
+  if(e.target.id==='f-pfecha')pFormSync(false);
   if(e.target.id==='f-fecha'){var tf=document.getElementById('f-tasa');if(tf&&!tf.dataset.touched){var rr=rateFor(e.target.value||today());if(rr){tf.value=String(rr.valor).replace('.',',');recalcVes()}}}
 });
 var toastT=0;
 function toast(msg){var t=document.getElementById('toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(function(){t.hidden=true},3200)}
+
+/* ---------- portal de inquilinos: lado de la administración ---------- */
+var PM_METODOS=[['pm','Pago móvil'],['ef','Efectivo / divisas']];
+function portalCfg(){return (S.config&&S.config.portal)||{}}
+function portalDesde(){var c=portalCfg();if(/^\d{4}-\d{2}$/.test(c.desde||''))return c.desde;var m=S.payments.reduce(function(a,p){return p.mes&&(!a||p.mes<a)?p.mes:a},'');return m||curMonth()}
+function portalLinkOf(tok){return location.origin+location.pathname+'#inquilino='+tok}
+function portalRef(tok){return fdb.collection('portal').doc(tok)}
+function portalMapRef(){return fdb.collection('secret').doc('portal')}
+function pendingReps(){return S.reportes.filter(function(r){return r.estado==='pendiente'}).sort(function(a,b){return String(a.created_at||'')<String(b.created_at||'')?-1:1})}
+function repByPath(p){return S.reportes.find(function(r){return r.path===p})}
+function fmtDT(iso){if(!iso)return '';var d=new Date(iso);if(isNaN(d))return '';return fmtDs(d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()))+', '+pad(d.getHours())+':'+pad(d.getMinutes())}
+var portalSynced={},portalTimer=0;
+function portalPayload(t){
+  var r=roomById(t.roomId),c=portalCfg();
+  var pagos=S.payments.filter(function(p){return p.tenantId===t.id}).sort(function(a,b){return (a.fecha||'')<(b.fecha||'')?1:-1}).slice(0,60).map(function(p){
+    return {mes:p.mes||'',monto:Number(p.monto)||0,fecha:p.fecha||'',tipo:p.tipo||'pago',metodo:p.metodo||'',moneda:p.moneda||'USD',monto_bs:Number(p.montoBs)||null,tasa:Number(p.tasa)||null};
+  });
+  return {tenant_id:t.id,nombre:t.nombre||'',habitacion:r?String(r.num):'',renta:Number(t.renta)||0,dia_pago:Number(t.diaPago)||1,entrada:t.entrada||'',salida:t.salida||'',
+    desde:portalDesde(),residencia:S.config.nombre||'',metodos:(c.metodos&&c.metodos.length?c.metodos:['pm','ef']),
+    pm:{banco:c.pm_banco||'',telefono:c.pm_telefono||'',cedula:c.pm_cedula||'',titular:c.pm_titular||''},ef_texto:c.ef_texto||'',
+    tasas:tasaHist().slice(0,8).map(function(h){return {fecha:h.fecha,valor:h.valor}}),pagos:pagos,revocado:false};
+}
+function syncPortals(){clearTimeout(portalTimer);portalTimer=setTimeout(doSyncPortals,900)}
+function doSyncPortals(){
+  if(!S.owner||guest||!S.db||!S.portalLoaded||!S.config||COLS.some(function(c){return !S.loaded[c]}))return;
+  Object.keys(S.portalTokens).forEach(function(tid){
+    var tok=S.portalTokens[tid];if(!tok||typeof tok!=='string')return;
+    var t=tenantById(tid),body=t?portalPayload(t):{revocado:true,tenant_id:tid};
+    var key=JSON.stringify(body);if(portalSynced[tok]===key)return;
+    portalSynced[tok]=key;body.updated_at=new Date().toISOString();
+    portalRef(tok).set(body).catch(function(e){delete portalSynced[tok];console.error('portal',e)});
+  });
+}
+function makePortalToken(tid){
+  var old=S.portalTokens[tid],tok=genToken(),o={},t=tenantById(tid);o[tid]=tok;
+  var body=portalPayload(t);portalSynced[tok]=JSON.stringify(body);body.updated_at=new Date().toISOString();
+  return portalRef(tok).set(body).then(function(){return portalMapRef().set(o,{merge:true})}).then(function(){
+    S.portalTokens[tid]=tok;
+    if(old)return portalRef(old).set({revocado:true,tenant_id:tid,updated_at:new Date().toISOString()});
+  }).then(function(){return tok});
+}
+function ensurePortalToken(tid){return S.portalTokens[tid]?Promise.resolve(S.portalTokens[tid]):makePortalToken(tid)}
+function listenPortal(){
+  S.portalLoaded=false;S.repLoaded=false;S.reportes=[];var first=true;
+  unsubs.push(portalMapRef().onSnapshot(function(s){
+    var m=s.exists?(s.data()||{}):{},o={};Object.keys(m).forEach(function(k){if(typeof m[k]==='string'&&m[k])o[k]=m[k]});
+    S.portalTokens=o;S.portalLoaded=true;schedule();
+  },function(e){console.error('portal map',e);S.portalLoaded=true}));
+  unsubs.push(fdb.collectionGroup('reportes').onSnapshot(function(snap){
+    var before=pendingReps().map(function(r){return r.path});
+    S.reportes=snap.docs.map(function(d){var r=d.data();r.id=d.id;r.path=d.ref.path;r.tok=d.ref.parent&&d.ref.parent.parent?d.ref.parent.parent.id:'';return r});
+    if(!first){var neu=pendingReps().filter(function(r){return before.indexOf(r.path)<0});if(neu.length){var t=tenantById(neu[0].tenant_id);toast(neu.length>1?neu.length+' pagos nuevos por verificar':'Nuevo pago por verificar'+(t?' de '+t.nombre:''))}}
+    first=false;S.repLoaded=true;schedule();
+  },function(e){console.error('reportes',e);S.repLoaded=true;schedule()}));
+}
+function repCard(r){
+  var t=tenantById(r.tenant_id),ves=r.moneda==='VES';
+  return '<article class="fu"><div class="sec-row"><strong>'+esc(t?t.nombre:'Inquilino eliminado')+(t?' · '+esc(roomNum(t.roomId)):'')+'</strong>'+pill(r.tipo==='abono'?'p-warn':'p-info',(r.tipo==='abono'?'Abono':'Pago')+' · '+mShort(r.mes||''))+'</div>'
+    +'<div class="rep-amt">'+(ves?bs(r.monto_bs):money(r.monto))+'</div>'
+    +'<div class="small muted">'+(ves?'≈ '+money(r.monto)+' a tasa '+nf4(r.tasa)+' · ':'')+esc(r.metodo||'')+(r.referencia?' · Ref. <span class="num">'+esc(r.referencia)+'</span>':'')+'</div>'
+    +'<div class="small muted">Pagó el '+fmtD(r.fecha)+' · enviado el '+fmtDT(r.created_at)+' · '+(r.comprobante_id?'con comprobante':'sin comprobante')+'</div>'
+    +(r.nota?'<div class="small" style="white-space:pre-line">'+esc(r.nota)+'</div>':'')
+    +'<div class="actions">'+btn('Rechazar','rejectRep','data-path="'+esc(r.path)+'"','small ghost')+btn('Revisar y confirmar','reviewRep','data-path="'+esc(r.path)+'"','small primary')+'</div></article>';
+}
+V.verify=function(){
+  var pend=pendingReps();
+  var h=head('Pagos reportados desde el portal de inquilinos','Por verificar',btn('Datos de pago del portal','portalSettings'));
+  if(!S.repLoaded)return h+'<p class="state">Cargando reportes…</p>';
+  if(pend.length)h+='<section class="sec" aria-label="Pendientes"><h2 class="sec-h">'+pend.length+(pend.length===1?' pago espera':' pagos esperan')+' tu confirmación</h2><p class="muted small" style="margin:0">Revisa en tu banco o en caja que el dinero llegó. Al confirmar, el pago se registra solo y el inquilino lo ve en su portal.</p><div class="followups">'+pend.map(repCard).join('')+'</div></section>';
+  else h+='<section class="empty"><h2>Nada por verificar</h2><p>Cuando un inquilino reporte un pago o abono desde su portal, aparecerá aquí para que lo confirmes.</p></section>';
+  var cur=S.tenants.filter(isCurrent).sort(function(a,b){return byNum(roomById(a.roomId)||{},roomById(b.roomId)||{})});
+  h+='<section class="sec" aria-label="Enlaces del portal"><h2 class="sec-h">Enlaces del portal</h2><p class="muted small" style="margin:0">Cada inquilino tiene su propio enlace. Envíaselo por WhatsApp: con él ve su estado de cuenta y reporta sus pagos sin contraseña.</p>'
+    +'<div class="tablebox"><table style="min-width:520px"><thead><tr><th>Inquilino</th><th>Hab.</th><th>Enlace</th><th></th></tr></thead><tbody>'
+    +(cur.length?cur.map(function(t){var tok=S.portalTokens[t.id];return '<tr><td><strong>'+esc(t.nombre)+'</strong></td><td class="num">'+esc(roomNum(t.roomId))+'</td><td>'+(tok?pill('p-ok','Activo'):pill('p-neu','Sin enlace'))+'</td><td class="r">'+btn(tok?'Ver y enviar':'Crear enlace','portalLink','data-tid="'+esc(t.id)+'"','small'+(tok?'':' primary'))+'</td></tr>'}).join(''):'<tr><td colspan="4" class="muted" style="padding:20px 12px">No hay inquilinos activos.</td></tr>')
+    +'</tbody></table></div></section>';
+  var done=S.reportes.filter(function(r){return r.estado!=='pendiente'}).sort(function(a,b){return String(a.revisado_en||'')<String(b.revisado_en||'')?1:-1}).slice(0,15);
+  if(done.length)h+='<section class="sec" aria-label="Revisados"><h2 class="sec-h">Revisados recientemente</h2><div class="tablebox"><table style="min-width:600px"><thead><tr><th>Revisado</th><th>Inquilino</th><th>Mes</th><th class="r">Monto</th><th>Estado</th></tr></thead><tbody>'
+    +done.map(function(r){var t=tenantById(r.tenant_id);return '<tr><td class="muted" style="white-space:nowrap">'+fmtDT(r.revisado_en)+'</td><td><strong>'+esc(t?t.nombre:'Inquilino eliminado')+'</strong></td><td>'+esc(mShort(r.mes_aprobado||r.mes||''))+'</td><td class="r num">'+money(r.monto_aprobado||r.monto)+(r.moneda==='VES'?'<span class="bs">'+bs(r.monto_bs)+'</span>':'')+'</td><td>'+(r.estado==='aprobado'?pill('p-ok','Confirmado'):pill('p-bad','Rechazado')+(r.motivo?'<div class="small muted">'+esc(r.motivo)+'</div>':''))+'</td></tr>'}).join('')
+    +'</tbody></table></div></section>';
+  return h;
+};
+function dataUrlBlob(u){var p=String(u).split(','),mime=(p[0].match(/data:([^;]+)/)||[])[1]||'application/octet-stream',bin=atob(p[1]||''),a=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)a[i]=bin.charCodeAt(i);return new Blob([a],{type:mime})}
+function loadProof(r,id){
+  var box=function(){return document.getElementById(id)};
+  portalRef(r.tok).collection('comprobantes').doc(r.comprobante_id).get().then(function(s){
+    var b=box();if(!b)return;var d=s.exists?s.data():null;
+    if(!d||!d.data){b.innerHTML='<span class="muted small">No se encontró el comprobante.</span>';return}
+    b._data=d.data;
+    b.innerHTML=String(d.tipo).indexOf('image/')===0?'<button type="button" data-act="openProof" style="border:none;background:none;padding:0;cursor:zoom-in" aria-label="Abrir comprobante en grande"><img alt="Comprobante de pago" src="'+esc(d.data)+'"></button>':btn('Abrir comprobante (PDF)','openProof','','small');
+  }).catch(function(){var b=box();if(b)b.innerHTML='<span class="muted small">No se pudo cargar el comprobante.</span>'});
+}
+A.openProof=function(b){var box=b.closest('.proof');if(!box||!box._data)return;try{window.open(URL.createObjectURL(dataUrlBlob(box._data)),'_blank')}catch(e){toast('No se pudo abrir el comprobante.')}};
+A.reviewRep=function(b){
+  var r=repByPath(b.dataset.path);if(!r)return;
+  var t=tenantById(r.tenant_id),ves=r.moneda==='VES',path=r.path;
+  var info='<div><div class="kv"><span>Inquilino</span><span>'+esc(t?t.nombre+' · hab. '+roomNum(t.roomId):'Inquilino eliminado')+'</span></div>'
+    +'<div class="kv"><span>Reportó</span><span>'+(r.tipo==='abono'?'Abono':'Pago')+' de '+esc(mLabel(r.mes).toLowerCase())+'</span></div>'
+    +'<div class="kv"><span>Método</span><span>'+esc(r.metodo||'—')+'</span></div>'
+    +(r.referencia?'<div class="kv"><span>Referencia</span><span class="num">'+esc(r.referencia)+'</span></div>':'')
+    +'<div class="kv"><span>Fecha del pago</span><span>'+fmtD(r.fecha)+'</span></div>'
+    +'<div class="kv"><span>Monto</span><span class="num">'+(ves?bs(r.monto_bs)+'<span class="bs">tasa '+nf4(r.tasa)+' = '+money(r.monto)+'</span>':money(r.monto))+'</span></div></div>'
+    +(r.nota?'<p class="note" style="white-space:pre-line">'+esc(r.nota)+'</p>':'');
+  var proof=r.comprobante_id?'<div class="proof" id="proofBox"><span class="muted small">Cargando comprobante…</span></div>':'<p class="note">El inquilino no adjuntó comprobante.</p>';
+  var fields='<div class="divider"></div><p class="lbl">Se registrará así</p><div class="row2">'+fld('Mes al que se aplica','mes',r.mes,'month','required')+fld('Monto en dólares','monto',String(r.monto),'text','inputmode="decimal" required')+'</div><p class="muted small" style="margin:0">Confirma solo después de ver el dinero en tu cuenta o en caja. Si no coincide, corrige el mes o el monto, o rechaza el reporte.</p>';
+  openModal('Revisar pago reportado',proof+info+fields,function(d){
+    var cur=repByPath(path);if(!cur||cur.estado!=='pendiente')fail('Este reporte ya fue revisado.');
+    if(!/^\d{4}-\d{2}$/.test(d.mes||''))fail('Elige el mes al que se aplica.');
+    var monto=parseAmt(d.monto);if(!(monto>0))fail('Escribe el monto en dólares.');monto=Math.round(monto*100)/100;
+    var ps=t?payStatus(t,d.mes):null,debe=ps?ps.debe:Infinity;
+    var tipo=cur.tipo==='abono'||monto<debe-0.004?'abono':'pago';
+    var o=stamp({tenantId:cur.tenant_id,mes:d.mes,monto:monto,fecha:cur.fecha||today(),metodo:cur.metodo==='Pago móvil'?'Pago móvil':'Efectivo',referencia:cur.referencia||'',tipo:tipo,moneda:ves?'VES':'USD',montoBs:ves?Number(cur.monto_bs)||'':'',tasa:ves?Number(cur.tasa)||'':''});
+    var pref=fdb.collection('payments').doc(),row=toDb('payments',o),now=new Date().toISOString();row.created_at=now;row.reporte=path;
+    var batch=fdb.batch();batch.set(pref,row);batch.update(fdb.doc(path),{estado:'aprobado',revisado_en:now,payment_id:pref.id,monto_aprobado:monto,mes_aprobado:d.mes});
+    var rest=isFinite(debe)?Math.max(0,debe-monto):null;
+    return batch.commit().then(function(){return (tipo==='abono'?'Abono':'Pago')+(t?' de '+t.nombre:'')+' confirmado'+(rest!=null?(rest>0.004?' · queda debiendo '+money(rest):' · mes pagado'):'')});
+  },{label:'Confirmar pago',extra:btn('Rechazar','rejectRep','data-path="'+esc(path)+'" style="margin-right:auto"','ghost')});
+  if(r.comprobante_id)loadProof(r,'proofBox');
+};
+A.rejectRep=function(b){
+  var r=repByPath(b.dataset.path);if(!r)return;var t=tenantById(r.tenant_id),path=r.path;
+  openModal('Rechazar pago reportado','<p style="margin:0">'+(t?esc(t.nombre)+' verá':'El inquilino verá')+' este pago como rechazado junto con el motivo, y podrá reportarlo de nuevo.</p><label class="f" for="f-motivo">Motivo<textarea id="f-motivo" name="motivo" maxlength="300" placeholder="Ej.: la referencia no aparece en el banco"></textarea></label>',function(d){
+    if(!d.motivo)fail('Escribe el motivo para que el inquilino sepa qué corregir.');
+    var cur=repByPath(path);if(!cur||cur.estado!=='pendiente')fail('Este reporte ya fue revisado.');
+    return fdb.doc(path).update({estado:'rechazado',motivo:d.motivo.slice(0,300),revisado_en:new Date().toISOString()}).then(function(){return 'Pago rechazado'});
+  },{label:'Rechazar',danger:true});
+};
+function waPortalText(t,tok){return 'Hola '+String(t.nombre||'').split(' ')[0]+', este es tu enlace personal de '+(S.config.nombre||'la residencia')+'. Ahí puedes ver tu estado de cuenta y reportar tus pagos o abonos con el comprobante: '+portalLinkOf(tok)+' . Es solo para ti, no lo compartas.'}
+A.portalLink=function(b){
+  var t=tenantById(b.dataset.tid);if(!t)return;
+  ensurePortalToken(t.id).then(function(tok){
+    var wa=waNum(t.telefono),link=portalLinkOf(tok),nm=String(t.nombre||'').split(' ')[0];
+    openModal('Portal de '+t.nombre,'<p class="muted small" style="margin:0">Con este enlace '+esc(nm)+' ve su estado de cuenta y te reporta sus pagos, sin contraseña. Si lo pierde o lo comparte, genera uno nuevo: el anterior deja de funcionar.</p>'
+      +'<label class="f" for="f-glink"><span class="small muted">Enlace personal</span><input id="f-glink" type="text" readonly value="'+esc(link)+'"></label>'
+      +'<div class="actions">'+btn('Copiar enlace','copyGuest','','small primary')+(wa?'<a class="btn small" href="https://wa.me/'+wa+'?text='+encodeURIComponent(waPortalText(t,tok))+'" target="_blank" rel="noopener">Enviar por WhatsApp</a>':'')+'<a class="btn small" href="'+esc(link)+'" target="_blank" rel="noopener">Verlo como inquilino</a>'+btn('Generar enlace nuevo','rotatePortal','data-tid="'+esc(t.id)+'"','small ghost')+'</div>'
+      +(wa?'':'<p class="muted small" style="margin:0">Agrega su teléfono en la ficha para enviárselo directo por WhatsApp.</p>'),null);
+    schedule();
+  }).catch(function(e){toast(dbMsg(e))});
+};
+A.rotatePortal=function(b){
+  var t=tenantById(b.dataset.tid);if(!t)return;
+  openModal('Generar enlace nuevo','<p style="margin:0">El enlace actual de '+esc(t.nombre)+' dejará de funcionar de inmediato. Tendrás que enviarle el nuevo.</p>',function(){
+    return makePortalToken(t.id).then(function(){setTimeout(function(){A.portalLink({dataset:{tid:t.id}})},60);return 'Enlace nuevo generado'});
+  },{label:'Generar enlace nuevo',danger:true});
+};
+A.portalSettings=function(){
+  var c=portalCfg(),m=c.metodos&&c.metodos.length?c.metodos:['pm','ef'];
+  var inner='<p class="muted small" style="margin:0">Tus inquilinos ven estos datos en su portal para saber cómo pagarte.</p>'
+    +'<fieldset><legend>Formas de pago que aceptas</legend><div class="radios">'+PM_METODOS.map(function(x){return '<label><input type="checkbox" name="met_'+x[0]+'"'+(m.indexOf(x[0])>-1?' checked':'')+'> '+esc(x[1])+'</label>'}).join('')+'</div></fieldset>'
+    +'<p class="lbl">Pago móvil</p><div class="row2">'+fld('Banco','pm_banco',c.pm_banco,'text','placeholder="Ej.: 0102 Banco de Venezuela"')+fld('Teléfono','pm_telefono',c.pm_telefono,'tel','placeholder="0412 1234567"')+'</div>'
+    +'<div class="row2">'+fld('Cédula o RIF','pm_cedula',c.pm_cedula,'text','placeholder="V-12345678"')+fld('Titular','pm_titular',c.pm_titular,'text','placeholder="Nombre de quien recibe"')+'</div>'
+    +'<p class="lbl">Efectivo / divisas</p><label class="f" for="f-ef_texto">Instrucciones<textarea id="f-ef_texto" name="ef_texto" maxlength="400" placeholder="Ej.: entregar a la administración en la recepción, de lunes a sábado.">'+esc(c.ef_texto||'')+'</textarea></label>'
+    +'<div class="divider"></div>'+fld('Mostrar estado de cuenta desde','desde',portalDesde(),'month','','Los inquilinos no ven meses anteriores. Sirve para no mostrar deudas de antes de empezar a usar la app.');
+  openModal('Datos de pago del portal',inner,function(d){
+    var met=[];if(d.met_pm)met.push('pm');if(d.met_ef)met.push('ef');
+    if(!met.length)fail('Elige al menos una forma de pago.');
+    if(d.desde&&!/^\d{4}-\d{2}$/.test(d.desde))fail('Elige un mes válido.');
+    return saveConfig({portal:{metodos:met,pm_banco:d.pm_banco||'',pm_telefono:d.pm_telefono||'',pm_cedula:d.pm_cedula||'',pm_titular:d.pm_titular||'',ef_texto:(d.ef_texto||'').slice(0,400),desde:d.desde||''}}).then(function(){return 'Datos del portal guardados'});
+  });
+};
+
+/* ---------- portal del inquilino ---------- */
+var PORTAL=null,P_KIND='pago';
+function enterPortal(tok){
+  PORTAL={tok:tok,doc:null,reps:[],loaded:false,repsLoaded:false,err:''};
+  document.getElementById('auth').hidden=true;document.getElementById('app').hidden=true;document.getElementById('portal').hidden=false;
+  document.title='Mi cuenta';
+  var ref=portalRef(tok);
+  ref.onSnapshot(function(s){PORTAL.loaded=true;PORTAL.err='';PORTAL.doc=s.exists?(s.data()||null):null;applyPortalDoc();schedule()},function(e){PORTAL.loaded=true;PORTAL.err=isNetErr(e)?'net':'denied';schedule()});
+  ref.collection('reportes').onSnapshot(function(snap){
+    PORTAL.reps=snap.docs.map(function(d){var r=d.data();r.id=d.id;return r}).sort(function(a,b){return String(a.created_at||'')<String(b.created_at||'')?1:-1});
+    PORTAL.repsLoaded=true;schedule();
+  },function(){PORTAL.repsLoaded=true;schedule()});
+  fetchTasa();setInterval(fetchTasa,30*60*1000);
+}
+function applyPortalDoc(){
+  var d=PORTAL.doc;if(!d||d.revocado){S.tenants=[];S.payments=[];return}
+  var t={id:d.tenant_id,nombre:d.nombre||'',renta:Number(d.renta)||0,diaPago:d.dia_pago||1,entrada:d.entrada||'',salida:d.salida||'',roomId:''};
+  S.tenants=[t];
+  S.payments=(d.pagos||[]).map(function(p){return {tenantId:t.id,mes:p.mes,monto:Number(p.monto)||0,fecha:p.fecha,tipo:p.tipo,metodo:p.metodo,moneda:p.moneda,montoBs:p.monto_bs||'',tasa:p.tasa||''}});
+  S.config={nombre:d.residencia||'',tasasHist:d.tasas||[]};
+}
+function portalMonths(){
+  var d=PORTAL.doc,t=S.tenants[0];if(!t||!t.entrada)return [];
+  var start=t.entrada.slice(0,7);if(d.desde&&d.desde>start)start=d.desde;
+  var end=curMonth();if(t.salida&&t.salida.slice(0,7)<end)end=t.salida.slice(0,7);
+  var out=[],M=start,n=0;while(M<=end&&n++<60){var ps=payStatus(t,M);if(ps)out.push({M:M,ps:ps});M=shiftMonth(M,1)}
+  return out;
+}
+function repPill(r){return r.estado==='aprobado'?pill('p-ok','Confirmado'):r.estado==='rechazado'?pill('p-bad','Rechazado'):pill('p-warn','En revisión')}
+function renderPortal(){
+  var el=document.getElementById('pView'),P=PORTAL,d=P.doc,r=tasaHoy();
+  document.getElementById('pRate').innerHTML=r?'Tasa BCV<strong class="num">Bs. '+nf4(r.valor)+'</strong>':'';
+  if(!P.loaded){el.innerHTML='<p class="state">Cargando tu cuenta…</p>';return}
+  if(P.err==='net'){el.innerHTML='<section class="empty"><h2>No se pudo conectar</h2><p>Revisa tu conexión a internet y vuelve a abrir el enlace.</p></section>';return}
+  if(!d||d.revocado||P.err){document.getElementById('pName').textContent='Residencia';el.innerHTML='<section class="empty"><h2>Este enlace ya no es válido</h2><p>Pide tu enlace actualizado a la administración de la residencia.</p></section>';return}
+  document.getElementById('pName').textContent=d.residencia||'Residencia';
+  document.title='Mi cuenta · '+(d.residencia||'Residencia');
+  var t=S.tenants[0],ms=portalMonths(),total=0,venc=0,nextDue='';
+  ms.forEach(function(x){total+=x.ps.debe;if(x.ps.late>0)venc+=x.ps.debe;else if(x.ps.debe>0&&!nextDue)nextDue=x.ps.due});
+  var pend=P.reps.filter(function(x){return x.estado==='pendiente'}),enRev=pend.reduce(function(s,x){return s+(Number(x.monto)||0)},0);
+  var owe=total>0.004,msg;
+  if(venc>0.004)msg='Tienes '+money(venc)+' vencido'+(total-venc>0.004?' y '+money(total-venc)+' por vencer el '+fmtD(nextDue):'')+'.';
+  else if(owe)msg='Vence el '+fmtD(nextDue)+'.';
+  else msg=ms.length?'¡Estás al día! Gracias por tu pago.':'Todavía no hay meses por pagar.';
+  var h='<section class="p-hello"><div class="eyebrow">Hola, '+esc(String(t.nombre||'').split(' ')[0])+'</div><h1>Tu estado de cuenta</h1><div class="muted small">Habitación '+esc(d.habitacion||'—')+' · renta de '+money(t.renta)+' al mes'+(r?' ('+eqBs(t.renta)+')':'')+' · se paga el día '+esc(d.dia_pago||1)+'</div></section>';
+  h+='<section class="panel p-hero" aria-label="Saldo"><div class="kpi-l">'+(owe?'Saldo pendiente':'Saldo')+'</div><div class="p-amt '+(venc>0.004?'c-bad':owe?'':'c-ok')+'">'+money(total)+'</div>'
+    +(owe&&r?'<div class="bs" style="font-size:14px">'+eqBs(total)+' a la tasa BCV de hoy</div>':'')
+    +'<div>'+esc(msg)+'</div>'
+    +(pend.length?'<p class="alert-info" style="margin:0">Tienes '+pend.length+(pend.length===1?' pago':' pagos')+' en revisión por '+money(enRev)+'. Aquí verás cuando la administración '+(pend.length===1?'lo confirme':'los confirme')+'.</p>':'')
+    +'<div class="actions">'+btn(owe?'Reportar pago':'Adelantar un pago','pReport','data-kind="pago"','primary')+btn('Abonar una parte','pReport','data-kind="abono"')+'</div></section>';
+  var mets=d.metodos||['pm','ef'],pm=d.pm||{},cp=function(l,v){return v?'<div class="copyrow"><div><span class="small muted">'+esc(l)+'</span><b class="num">'+esc(v)+'</b></div>'+btn('Copiar','pCopy','data-v="'+esc(v)+'"','small')+'</div>':''};
+  var how='';
+  if(mets.indexOf('pm')>-1){var rows=cp('Banco',pm.banco)+cp('Teléfono',pm.telefono)+cp('Cédula o RIF',pm.cedula)+cp('Titular',pm.titular);how+='<div><p class="lbl">Pago móvil</p>'+(rows||'<p class="muted small" style="margin:0">Pide los datos a la administración.</p>')+'</div>'}
+  if(mets.indexOf('ef')>-1)how+='<div><p class="lbl">Efectivo / divisas</p><p style="margin:0;white-space:pre-line">'+esc(d.ef_texto||'Entrégalo directamente a la administración y luego repórtalo aquí.')+'</p></div>';
+  h+='<section class="panel" aria-label="Cómo pagar"><h2>Cómo pagar</h2>'+how+'<p class="muted small" style="margin:0">Después de pagar, presiona «Reportar pago» y adjunta la captura.</p></section>';
+  if(ms.length)h+='<section class="sec" aria-label="Meses"><h2 class="sec-h">Mes por mes</h2><div class="tablebox"><table><thead><tr><th>Mes</th><th class="r">Pagado</th><th class="r">Debe</th><th>Estado</th></tr></thead><tbody>'
+    +ms.slice().reverse().map(function(x){var ps=x.ps;return '<tr><td><strong>'+esc(mLabel(x.M))+'</strong><div class="small muted">vence '+fmtDs(ps.due)+'</div></td><td class="r num">'+money(ps.paid)+'<span class="bs">de '+money(ps.renta)+'</span></td><td class="r num'+(ps.debe>0.004&&ps.late>0?' c-bad':'')+'">'+money(ps.debe)+'</td><td>'+pill(ps.cls,ps.k==='pagado'?'Pagado':ps.late>0?'Vencido':ps.paid>0?'Abonado':'Por pagar')+'</td></tr>'}).join('')
+    +'</tbody></table></div></section>';
+  if(P.reps.length)h+='<section class="sec" aria-label="Mis reportes"><h2 class="sec-h">Pagos que reportaste</h2><div class="tablebox"><table><thead><tr><th>Enviado</th><th>Mes</th><th class="r">Monto</th><th>Estado</th></tr></thead><tbody>'
+    +P.reps.slice(0,12).map(function(x){return '<tr><td class="muted" style="white-space:nowrap">'+fmtDT(x.created_at)+'</td><td>'+(x.tipo==='abono'?'Abono · ':'')+esc(mShort(x.mes||''))+'</td><td class="r num">'+(x.moneda==='VES'?bs(x.monto_bs)+'<span class="bs">'+money(x.monto)+'</span>':money(x.monto))+'</td><td>'+repPill(x)+(x.estado==='rechazado'&&x.motivo?'<div class="small muted">'+esc(x.motivo)+'</div>':'')+'</td></tr>'}).join('')
+    +'</tbody></table></div></section>';
+  var pays=S.payments.slice().sort(function(a,b){return (a.fecha||'')<(b.fecha||'')?1:-1}).slice(0,24);
+  h+='<section class="sec" aria-label="Pagos registrados"><h2 class="sec-h">Pagos registrados</h2>'+(pays.length?'<div class="tablebox"><table><thead><tr><th>Fecha</th><th>Detalle</th><th class="r">Monto</th></tr></thead><tbody>'
+    +pays.map(function(p){return '<tr><td class="muted" style="white-space:nowrap">'+fmtD(p.fecha)+'</td><td>'+(p.tipo==='abono'?'Abono · ':'')+esc(mShort(p.mes||''))+'<div class="small muted">'+esc(p.metodo||'')+'</div></td><td class="r num">'+amtCell(p)+'</td></tr>'}).join('')
+    +'</tbody></table></div>':'<p class="muted" style="margin:0">Todavía no hay pagos registrados.</p>')+'</section>';
+  h+='<p class="p-foot">Este enlace es personal: no lo compartas. Si tienes dudas sobre tu cuenta, escribe a la administración.</p>';
+  el.innerHTML=h;
+}
+A.pCopy=function(b){var v=b.dataset.v||'';try{navigator.clipboard.writeText(v).then(function(){toast('Copiado: '+v)},function(){toast(v)})}catch(e){toast(v)}};
+A.pReport=function(b){
+  if(!PORTAL||!S.tenants[0])return;
+  var kind=b.dataset.kind==='abono'?'abono':'pago',d=PORTAL.doc,t=S.tenants[0];
+  var opts=portalMonths().filter(function(x){return x.ps.debe>0.004}).map(function(x){return [x.M,mLabel(x.M)+' · debe '+money(x.ps.debe)]});
+  var nxt=shiftMonth(curMonth(),1),pn=payStatus(t,nxt);
+  if(pn&&pn.debe>0.004&&!opts.some(function(o){return o[0]===nxt}))opts.push([nxt,mLabel(nxt)+' (adelanto)']);
+  P_KIND=kind;var title=kind==='abono'?'Reportar un abono':'Reportar un pago';
+  if(!opts.length){openModal(title,'<p style="margin:0">No tienes meses pendientes por pagar. ¡Gracias!</p>',null);return}
+  var mets=(d.metodos||['pm','ef']).filter(function(m){return m==='pm'||m==='ef'});if(!mets.length)mets=['pm'];
+  var inner=(kind==='abono'?'<p class="muted small" style="margin:0">Un abono es una parte de la renta. Puedes hacer varios en el mismo mes; se van descontando.</p>':'')
+    +sel('¿Qué mes estás pagando?','pmes',opts,opts[0][0])
+    +'<fieldset><legend>¿Cómo pagaste?</legend><div class="radios">'+mets.map(function(m,i){return '<label><input type="radio" name="pmetodo" value="'+m+'"'+(i===0?' checked':'')+'> '+(m==='pm'?'Pago móvil':'Efectivo / divisas')+'</label>'}).join('')+'</div></fieldset>'
+    +'<div id="pmBox">'+fld('Monto que pagaste (Bs.)','pbs','','text','inputmode="decimal" autocomplete="off" placeholder="Ej.: 70.432,00"')+'</div>'
+    +'<div id="efBox">'+fld('Monto que entregaste (US$)','pusd','','text','inputmode="decimal" autocomplete="off" placeholder="Ej.: 80"')+'</div>'
+    +'<p class="note" id="pEq" aria-live="polite"></p>'
+    +'<div class="row2">'+fld('Fecha del pago','pfecha',today(),'date','required max="'+today()+'"')+'<div id="pRefWrap">'+fld('Número de referencia','pref','','text','inputmode="numeric" autocomplete="off" maxlength="40" placeholder="Últimos 6 dígitos o más"')+'</div></div>'
+    +'<label class="f" for="f-pfile">Comprobante <span class="muted" id="pFileReq"></span><input id="f-pfile" name="pfile" type="file" accept="image/*,application/pdf"><small>Foto o captura de pantalla del pago. Se reduce sola para enviarla rápido.</small></label>'
+    +'<label class="f" for="f-pnota">Nota (opcional)<textarea id="f-pnota" name="pnota" maxlength="300" placeholder="Algo que la administración deba saber"></textarea></label>';
+  openModal(title,inner,function(f){return submitReport(kind,f)},{label:'Enviar a la administración'});
+  pFormSync(true);
+};
+function pFormSync(prefill){
+  var box=document.getElementById('pmBox');if(!box||!PORTAL)return;
+  var met=(document.querySelector('input[name="pmetodo"]:checked')||{}).value||'pm',pm=met==='pm';
+  box.hidden=!pm;document.getElementById('efBox').hidden=pm;document.getElementById('pRefWrap').hidden=!pm;
+  document.getElementById('pFileReq').textContent=pm?'(captura del pago móvil)':'(opcional: foto del recibo)';
+  var t=S.tenants[0],M=(document.getElementById('f-pmes')||{}).value,ps=t&&M?payStatus(t,M):null,debe=ps?ps.debe:0;
+  var fecha=(document.getElementById('f-pfecha')||{}).value||today(),r=rateFor(fecha);
+  var bi=document.getElementById('f-pbs'),ui=document.getElementById('f-pusd');
+  if(prefill&&P_KIND==='pago'){
+    if(!bi.dataset.touched&&r&&debe)bi.value=(Math.round(debe*r.valor*100)/100).toLocaleString('es-VE',{minimumFractionDigits:2,maximumFractionDigits:2});
+    if(!ui.dataset.touched)ui.value=debe?String(Math.round(debe*100)/100):'';
+  }
+  var usd=pm?(r?parseAmt(bi.value)/r.valor:NaN):parseAmt(ui.value),txt='',lm=M?mLabel(M).toLowerCase():'';
+  if(pm&&!r)txt='Consultando la tasa BCV…';
+  else if(usd>0){usd=Math.round(usd*100)/100;txt=(pm?'Equivale a '+money(usd)+' a la tasa BCV del '+fmtD(r.fecha)+' (Bs. '+nf4(r.valor)+' por dólar). ':'')+(ps?(debe-usd>0.004?'Quedarías debiendo '+money(debe-usd)+' de '+lm+'.':'Con esto '+lm+' queda pagado'+(usd-debe>0.004?' y sobran '+money(usd-debe)+'.':'.')):'')}
+  else if(ps)txt='Debes '+money(debe)+' de '+lm+(r?' ('+eqBs(debe,fecha)+')':'')+'.';
+  var eq=document.getElementById('pEq');eq.textContent=txt;eq.hidden=!txt;
+}
+function readAsDataURL(file){return new Promise(function(res,rej){var fr=new FileReader();fr.onload=function(){res(fr.result)};fr.onerror=function(){rej(new Error('No se pudo leer el archivo.'))};fr.readAsDataURL(file)})}
+function readProof(file){
+  if(file.type==='application/pdf'){
+    if(file.size>700*1024)return Promise.reject(new Error('El PDF pesa mucho. Envía mejor una captura de pantalla del pago.'));
+    return readAsDataURL(file).then(function(u){return {data:u,tipo:'application/pdf'}});
+  }
+  if(!/^image\//.test(file.type||''))return Promise.reject(new Error('El comprobante debe ser una foto, una captura o un PDF.'));
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file),img=new Image();
+    img.onload=function(){
+      URL.revokeObjectURL(url);
+      var w=img.naturalWidth,h=img.naturalHeight,s=Math.min(1,1600/Math.max(w,h,1)),q=0.82,out='';
+      for(var i=0;i<10;i++){
+        var c=document.createElement('canvas');c.width=Math.max(1,Math.round(w*s));c.height=Math.max(1,Math.round(h*s));
+        var x=c.getContext('2d');x.fillStyle='#FFFFFF';x.fillRect(0,0,c.width,c.height);x.drawImage(img,0,0,c.width,c.height);
+        out=c.toDataURL('image/jpeg',q);if(out.length<650000)break;if(q>0.55)q-=0.1;else s*=0.8;
+      }
+      if(out.length>=950000){rej(new Error('La imagen es muy pesada. Intenta con una captura de pantalla.'));return}
+      res({data:out,tipo:'image/jpeg'});
+    };
+    img.onerror=function(){URL.revokeObjectURL(url);rej(new Error('No se pudo leer la imagen. Prueba con una captura de pantalla en JPG o PNG.'))};
+    img.src=url;
+  });
+}
+function submitReport(kind,f){
+  var t=S.tenants[0];if(!t)fail('Tu enlace ya no es válido.');
+  if(!/^\d{4}-\d{2}$/.test(f.pmes||''))fail('Elige el mes que estás pagando.');
+  var met=f.pmetodo;if(met!=='pm'&&met!=='ef')fail('Elige cómo pagaste.');
+  if(!f.pfecha)fail('Indica la fecha del pago.');if(f.pfecha>today())fail('La fecha del pago no puede ser futura.');
+  var rep={tenant_id:t.id,mes:f.pmes,tipo:kind,metodo:met==='pm'?'Pago móvil':'Efectivo / divisas',fecha:f.pfecha,referencia:String(f.pref||'').slice(0,40),nota:String(f.pnota||'').slice(0,300),estado:'pendiente',created_at:new Date().toISOString(),comprobante_id:null};
+  if(met==='pm'){
+    var b=parseAmt(f.pbs);if(!(b>0))fail('Escribe cuántos bolívares pagaste.');
+    var r=rateFor(f.pfecha);if(!r)fail('No se pudo obtener la tasa BCV. Espera unos segundos e intenta de nuevo.');
+    if(!rep.referencia)fail('Escribe el número de referencia del pago móvil.');
+    rep.moneda='VES';rep.monto_bs=Math.round(b*100)/100;rep.tasa=r.valor;rep.monto=Math.round(b/r.valor*100)/100;
+  }else{
+    var u=parseAmt(f.pusd);if(!(u>0))fail('Escribe cuántos dólares entregaste.');
+    rep.moneda='USD';rep.monto=Math.round(u*100)/100;rep.monto_bs=null;rep.tasa=null;rep.referencia='';
+  }
+  if(!(rep.monto>0)||rep.monto>=100000)fail('Revisa el monto.');
+  var file=f.pfile&&f.pfile.size?f.pfile:null;
+  if(met==='pm'&&!file)fail('Adjunta la captura del pago móvil.');
+  var base=portalRef(PORTAL.tok);
+  return (file?readProof(file):Promise.resolve(null)).then(function(pr){
+    if(!pr)return null;var cref=base.collection('comprobantes').doc();
+    return cref.set({data:pr.data,tipo:pr.tipo,created_at:new Date().toISOString()}).then(function(){return cref.id});
+  }).then(function(cid){rep.comprobante_id=cid;return base.collection('reportes').doc().set(rep)}).then(function(){
+    return 'Enviado. Verás aquí cuando la administración lo confirme.';
+  }).catch(function(e){
+    if(e&&e.code==='permission-denied')throw new Error('No se pudo enviar: tu enlace ya no es válido. Pide el enlace actualizado a la administración.');
+    throw e;
+  });
+}
 
 /* ---------- acceso ---------- */
 var authMode='login',currentUser=null,pendingGuest=null,BOOT_ADMIN='angelpitarch06@gmail.com';
@@ -1356,8 +1725,12 @@ function enterGuest(tok){
 (function(){
   var gm=(location.hash||'').match(/invitado=([A-Za-z0-9_-]{8,})/);
   if(gm){pendingGuest=gm[1];history.replaceState(null,'',location.origin+location.pathname)}
+  var pm=(location.hash||'').match(/inquilino=([A-Za-z0-9_-]{8,})/);
+  if(pm)enterPortal(pm[1]);
+  window.addEventListener('hashchange',function(){var m=(location.hash||'').match(/inquilino=([A-Za-z0-9_-]{8,})/);if((m&&(!PORTAL||PORTAL.tok!==m[1]))||(!m&&PORTAL))location.reload()});
 })();
 auth.onAuthStateChanged(function(u){
+  if(PORTAL)return;
   if(u&&!u.isAnonymous){enterApp(u);return}
   var tok=pendingGuest||lsGet('res.guest');
   if(tok){if(!guest)enterGuest(tok);return}

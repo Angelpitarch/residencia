@@ -39,6 +39,53 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
+    // Portal de inquilinos: cada inquilino tiene un documento cuyo id es su
+    // código secreto. Quien conoce el código lee su estado de cuenta y puede
+    // reportar pagos; nadie puede listar los códigos. Solo la administración
+    // escribe el estado de cuenta y confirma o rechaza los reportes.
+    match /portal/{tok} {
+      function portalDoc() { return get(/databases/$(database)/documents/portal/$(tok)).data; }
+      function live() { return portalDoc().get('revocado', false) != true; }
+      function validRep(d) {
+        return d.keys().hasOnly(['tenant_id', 'mes', 'tipo', 'metodo', 'fecha', 'referencia', 'nota', 'estado', 'created_at', 'comprobante_id', 'moneda', 'monto', 'monto_bs', 'tasa'])
+          && d.keys().hasAll(['tenant_id', 'mes', 'tipo', 'metodo', 'fecha', 'estado', 'monto', 'moneda'])
+          && d.tenant_id == portalDoc().tenant_id
+          && d.estado == 'pendiente'
+          && d.tipo in ['pago', 'abono']
+          && d.moneda in ['VES', 'USD']
+          && d.mes is string && d.mes.matches('^[0-9]{4}-[0-9]{2}$')
+          && d.fecha is string && d.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && d.metodo is string && d.metodo.size() <= 40
+          && d.monto is number && d.monto > 0 && d.monto < 100000
+          && (!('monto_bs' in d) || d.monto_bs == null || d.monto_bs is number)
+          && (!('tasa' in d) || d.tasa == null || d.tasa is number)
+          && (!('referencia' in d) || (d.referencia is string && d.referencia.size() <= 60))
+          && (!('nota' in d) || (d.nota is string && d.nota.size() <= 400))
+          && (!('comprobante_id' in d) || d.comprobante_id == null || (d.comprobante_id is string && d.comprobante_id.size() <= 40));
+      }
+      allow get: if true;
+      allow list, write: if isAdmin();
+
+      match /reportes/{id} {
+        allow read: if isAdmin() || live();
+        allow create: if live() && validRep(request.resource.data);
+        allow update, delete: if isAdmin();
+      }
+      match /comprobantes/{id} {
+        allow get: if isAdmin() || live();
+        allow create: if live()
+          && request.resource.data.keys().hasOnly(['data', 'tipo', 'created_at'])
+          && request.resource.data.tipo in ['image/jpeg', 'application/pdf']
+          && request.resource.data.data is string
+          && request.resource.data.data.size() < 1000000;
+        allow delete: if isAdmin();
+      }
+    }
+    // Bandeja de la administración: todos los reportes de todos los portales.
+    match /{path=**}/reportes/{id} {
+      allow read: if isAdmin();
+    }
+
     match /guestSessions/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create, update: if signedIn() && request.auth.uid == uid
